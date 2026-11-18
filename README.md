@@ -1,5 +1,11 @@
 # MyBuilding — Plateforme de Gestion de Copropriété (PFM)
 
+![Java](https://img.shields.io/badge/Java-21-orange.svg?style=flat-square&logo=openjdk)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.4-brightgreen.svg?style=flat-square&logo=springboot)
+![Spring Cloud](https://img.shields.io/badge/Spring%20Cloud-2023.0.3-blue.svg?style=flat-square)
+![Build](https://img.shields.io/badge/Build-Maven-C71A36.svg?style=flat-square&logo=apachemaven)
+![Architecture](https://img.shields.io/badge/Architecture-Microservices-blueviolet.svg?style=flat-square)
+
 ---
 
 ## 1. Description du Projet
@@ -309,9 +315,18 @@ Conformément au barème d'évaluation V4 :
 
 ---
 
-## 8. Versionnage Git & Jalons Livrés
+## 8. Outils de Test et Validation
 
-* **Jalon V0 & V1** : Tags `v1.0` / `jalon-1`
-* **Jalon V2 & V3** : Tag `v3.0.0-jalon3`
-* **Jalon V4** : Tag `v4.0.0-jalon4` (Communication synchrone OpenFeign & DTOs composés)
-* **Dépôt GitHub** : [https://github.com/SAADOUARRAD/MyBuilding](https://github.com/SAADOUARRAD/MyBuilding)
+Le projet inclut deux suites de tests complètes pour valider l'ensemble des scénarios nominaux et d'erreurs :
+* **Collection Postman officielle** : [`MyBuilding.postman_collection.json`](file:///c:/Users/USER/MyBuilding/MyBuilding.postman_collection.json) (42 requêtes automatisées avec assertions de test pour les dossiers 01 à 06).
+* **Fichier HTTP Client IntelliJ** : [`requests.http`](file:///c:/Users/USER/MyBuilding/requests.http) (permet d'exécuter directement chaque test depuis l'éditeur d'IntelliJ IDEA sans outil externe).
+
+---
+
+## 9. Versionnage Git & Jalons Livrés
+
+* **Jalon V0 & V1** : Tags `v1.0` / `jalon-1` (Architecture, entités métier, CRUD, DB per service)
+* **Jalon V2 & V3** : Tag `v3.0.0-jalon3` (Eureka Discovery, Gateway dynamique & statique, Config Server)
+* **Jalon V4** : Tag `v4.0.0-jalon4` (Communication synchrone OpenFeign, validation distante & DTOs composés)
+* **Dépôt GitHub Original (Saad)** : [https://github.com/SAADOUARRAD/MyBuilding](https://github.com/SAADOUARRAD/MyBuilding)
+* **Dépôt GitHub (Ilyas)** : [https://github.com/Ilyas0236/MyBuilding](https://github.com/Ilyas0236/MyBuilding)
