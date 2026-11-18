@@ -57,17 +57,17 @@ public class ChargeController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ChargeResponseDTO> getById(@PathVariable Long id) {
+    public ResponseEntity<ChargeResponseDTO> getById(@PathVariable("id") Long id) {
         return ResponseEntity.ok(chargeService.getById(id));
     }
 
     @GetMapping("/{id}/detail")
-    public ResponseEntity<ChargeResponseFullDTO> getDetailById(@PathVariable Long id) {
+    public ResponseEntity<ChargeResponseFullDTO> getDetailById(@PathVariable("id") Long id) {
         return ResponseEntity.ok(chargeService.getChargeFullById(id));
     }
 
     @GetMapping("/apartment/{apartmentId}")
-    public ResponseEntity<List<ChargeResponseDTO>> getByApartment(@PathVariable Long apartmentId) {
+    public ResponseEntity<List<ChargeResponseDTO>> getByApartment(@PathVariable("apartmentId") Long apartmentId) {
         return ResponseEntity.ok(chargeService.getByApartmentId(apartmentId));
     }
 
@@ -83,7 +83,7 @@ public class ChargeController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
+    public ResponseEntity<Void> delete(@PathVariable("id") Long id) {
         chargeService.delete(id);
         return ResponseEntity.noContent().build();
     }

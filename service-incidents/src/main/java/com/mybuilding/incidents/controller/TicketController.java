@@ -43,17 +43,17 @@ public class TicketController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<TicketResponseDTO> getById(@PathVariable Long id) {
+    public ResponseEntity<TicketResponseDTO> getById(@PathVariable("id") Long id) {
         return ResponseEntity.ok(ticketService.getById(id));
     }
 
     @GetMapping("/{id}/detail")
-    public ResponseEntity<TicketResponseFullDTO> getDetailById(@PathVariable Long id) {
+    public ResponseEntity<TicketResponseFullDTO> getDetailById(@PathVariable("id") Long id) {
         return ResponseEntity.ok(ticketService.getTicketFullById(id));
     }
 
     @GetMapping("/apartment/{apartmentId}")
-    public ResponseEntity<List<TicketResponseDTO>> getByApartment(@PathVariable Long apartmentId) {
+    public ResponseEntity<List<TicketResponseDTO>> getByApartment(@PathVariable("apartmentId") Long apartmentId) {
         return ResponseEntity.ok(ticketService.getByApartmentId(apartmentId));
     }
 
@@ -64,13 +64,13 @@ public class TicketController {
     }
 
     @PatchMapping("/{id}/status")
-    public ResponseEntity<TicketResponseDTO> updateStatus(@PathVariable Long id, @RequestBody Map<String, String> payload) {
+    public ResponseEntity<TicketResponseDTO> updateStatus(@PathVariable("id") Long id, @RequestBody Map<String, String> payload) {
         StatutTicket statut = StatutTicket.valueOf(payload.get("statut"));
         return ResponseEntity.ok(ticketService.updateStatus(id, statut));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
+    public ResponseEntity<Void> delete(@PathVariable("id") Long id) {
         ticketService.delete(id);
         return ResponseEntity.noContent().build();
     }

@@ -57,17 +57,17 @@ public class WorkOrderController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<WorkOrderResponseDTO> getById(@PathVariable Long id) {
+    public ResponseEntity<WorkOrderResponseDTO> getById(@PathVariable("id") Long id) {
         return ResponseEntity.ok(workOrderService.getById(id));
     }
 
     @GetMapping("/{id}/detail")
-    public ResponseEntity<WorkOrderResponseFullDTO> getDetailById(@PathVariable Long id) {
+    public ResponseEntity<WorkOrderResponseFullDTO> getDetailById(@PathVariable("id") Long id) {
         return ResponseEntity.ok(workOrderService.getWorkOrderFullById(id));
     }
 
     @GetMapping("/ticket/{ticketId}")
-    public ResponseEntity<List<WorkOrderResponseDTO>> getByTicket(@PathVariable Long ticketId) {
+    public ResponseEntity<List<WorkOrderResponseDTO>> getByTicket(@PathVariable("ticketId") Long ticketId) {
         return ResponseEntity.ok(workOrderService.getByTicketId(ticketId));
     }
 
@@ -78,19 +78,19 @@ public class WorkOrderController {
     }
 
     @PatchMapping("/{id}/status")
-    public ResponseEntity<WorkOrderResponseDTO> updateStatus(@PathVariable Long id, @RequestBody Map<String, String> payload) {
+    public ResponseEntity<WorkOrderResponseDTO> updateStatus(@PathVariable("id") Long id, @RequestBody Map<String, String> payload) {
         StatutWorkOrder statut = StatutWorkOrder.valueOf(payload.get("statut"));
         return ResponseEntity.ok(workOrderService.updateStatus(id, statut));
     }
 
     @PatchMapping("/{id}/close")
-    public ResponseEntity<WorkOrderResponseDTO> close(@PathVariable Long id, @RequestBody(required = false) Map<String, BigDecimal> payload) {
+    public ResponseEntity<WorkOrderResponseDTO> close(@PathVariable("id") Long id, @RequestBody(required = false) Map<String, BigDecimal> payload) {
         BigDecimal finalCost = payload != null ? payload.get("cout") : null;
         return ResponseEntity.ok(workOrderService.close(id, finalCost));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
+    public ResponseEntity<Void> delete(@PathVariable("id") Long id) {
         workOrderService.delete(id);
         return ResponseEntity.noContent().build();
     }

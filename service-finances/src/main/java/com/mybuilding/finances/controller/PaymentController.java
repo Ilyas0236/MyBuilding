@@ -40,12 +40,12 @@ public class PaymentController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<PaymentResponseDTO> getById(@PathVariable Long id) {
+    public ResponseEntity<PaymentResponseDTO> getById(@PathVariable("id") Long id) {
         return ResponseEntity.ok(paymentService.getById(id));
     }
 
     @GetMapping("/charge/{chargeId}")
-    public ResponseEntity<List<PaymentResponseDTO>> getByCharge(@PathVariable Long chargeId) {
+    public ResponseEntity<List<PaymentResponseDTO>> getByCharge(@PathVariable("chargeId") Long chargeId) {
         return ResponseEntity.ok(paymentService.getByChargeId(chargeId));
     }
 
