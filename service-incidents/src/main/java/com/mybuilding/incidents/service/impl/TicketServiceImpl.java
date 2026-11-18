@@ -6,6 +6,8 @@ import com.mybuilding.incidents.dto.TicketResponseFullDTO;
 import com.mybuilding.incidents.feignClient.ApartmentDTO;
 import com.mybuilding.incidents.feignClient.ResidentDTO;
 import com.mybuilding.incidents.feignClient.ResidentsFeignClient;
+import com.mybuilding.incidents.event.IncidentCreatedEvent;
+import com.mybuilding.incidents.messaging.IncidentEventPublisher;
 import com.mybuilding.incidents.mapper.IncidentMapper;
 import com.mybuilding.incidents.model.StatutTicket;
 import com.mybuilding.incidents.model.Ticket;
@@ -17,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.time.Instant;
 
 @Service
 @Transactional
@@ -25,23 +28,39 @@ public class TicketServiceImpl implements TicketService {
     private final TicketRepository ticketRepository;
     private final IncidentMapper incidentMapper;
     private final ResidentsFeignClient residentsFeignClient;
+    private final IncidentEventPublisher incidentEventPublisher;
 
     public TicketServiceImpl(TicketRepository ticketRepository,
                              IncidentMapper incidentMapper,
-                             ResidentsFeignClient residentsFeignClient) {
+                             ResidentsFeignClient residentsFeignClient,
+                             IncidentEventPublisher incidentEventPublisher) {
         this.ticketRepository = ticketRepository;
         this.incidentMapper = incidentMapper;
         this.residentsFeignClient = residentsFeignClient;
+        this.incidentEventPublisher = incidentEventPublisher;
     }
 
     @Override
     public TicketResponseDTO create(TicketRequestDTO dto) {
         // --- Jalon V4 : Validation préalable de la référence distante via OpenFeign ---
         // Vérifie que l'appartement existe réellement dans service-residents avant création
-        residentsFeignClient.getApartmentById(dto.getApartmentId());
+        ApartmentDTO apartment = residentsFeignClient.getApartmentById(dto.getApartmentId());
+        String recipientEmail = null;
+        if (apartment.getResidentId() != null) {
+            ResidentDTO resident = residentsFeignClient.getResidentById(apartment.getResidentId());
+            recipientEmail = resident.getEmail();
+        }
 
         Ticket ticket = incidentMapper.toEntity(dto);
         Ticket saved = ticketRepository.save(ticket);
+        incidentEventPublisher.publish(new IncidentCreatedEvent(
+                saved.getId(),
+                saved.getApartmentId(),
+                saved.getDescription(),
+                saved.getPriorite().name(),
+                recipientEmail,
+                Instant.now()
+        ));
         return incidentMapper.toResponseDTO(saved);
     }
 

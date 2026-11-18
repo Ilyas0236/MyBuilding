@@ -1668,6 +1668,94 @@
                                                   }
                                   }
                               ]
+                 },
+                 {
+                     "name":  "07 - Asynchrone RabbitMQ \u0026 Notifications (Jalon V5)",
+                     "item":  [
+                                  {
+                                      "name":  "7.1 - Créer un ticket et publier IncidentCreatedEvent",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\"Status code is 201 Created\", function () {",
+                                                                                    "    pm.response.to.have.status(201);",
+                                                                                    "});",
+                                                                                    "pm.test(\"Ticket créé avec un identifiant\", function () {",
+                                                                                    "    const body = pm.response.json();",
+                                                                                    "    pm.expect(body.id).to.be.a(\"number\");",
+                                                                                    "    pm.collectionVariables.set(\"createdTicketId\", body.id);",
+                                                                                    "});"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\"apartmentId\":1,\"description\":\"Test notification RabbitMQ\",\"priorite\":\"HAUTE\"}"
+                                                               },
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/api/tickets",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "api",
+                                                                               "tickets"
+                                                                           ]
+                                                              }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "7.2 - Vérifier la consommation et l\u0027envoi du mail",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\"Status code is 200 OK\", function () {",
+                                                                                    "    pm.response.to.have.status(200);",
+                                                                                    "});",
+                                                                                    "pm.test(\"Notification consommée et envoyée\", function () {",
+                                                                                    "    const body = pm.response.json();",
+                                                                                    "    pm.expect(body.ticketId).to.eql(pm.collectionVariables.get(\"createdTicketId\"));",
+                                                                                    "    pm.expect(body.status).to.eql(\"SENT\");",
+                                                                                    "    pm.expect(body.recipient).to.be.a(\"string\").and.not.empty;",
+                                                                                    "});"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/api/notifications/last",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "api",
+                                                                               "notifications",
+                                                                               "last"
+                                                                           ]
+                                                              }
+                                                  }
+                                  }
+                              ]
                  }
              ]
 }
