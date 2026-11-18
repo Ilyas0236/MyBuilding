@@ -27,12 +27,12 @@ public class ApartmentController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApartmentResponseDTO> getById(@PathVariable Long id) {
+    public ResponseEntity<ApartmentResponseDTO> getById(@PathVariable("id") Long id) {
         return ResponseEntity.ok(apartmentService.getById(id));
     }
 
     @GetMapping("/{id}/exists")
-    public ResponseEntity<Map<String, Boolean>> exists(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Boolean>> exists(@PathVariable("id") Long id) {
         return ResponseEntity.ok(Map.of("exists", apartmentService.exists(id)));
     }
 
@@ -43,18 +43,18 @@ public class ApartmentController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ApartmentResponseDTO> update(@PathVariable Long id, @Valid @RequestBody ApartmentRequestDTO dto) {
+    public ResponseEntity<ApartmentResponseDTO> update(@PathVariable("id") Long id, @Valid @RequestBody ApartmentRequestDTO dto) {
         return ResponseEntity.ok(apartmentService.update(id, dto));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
+    public ResponseEntity<Void> delete(@PathVariable("id") Long id) {
         apartmentService.delete(id);
         return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/{id}/resident")
-    public ResponseEntity<ApartmentResponseDTO> assignResident(@PathVariable Long id, @RequestBody Map<String, Long> payload) {
+    public ResponseEntity<ApartmentResponseDTO> assignResident(@PathVariable("id") Long id, @RequestBody Map<String, Long> payload) {
         Long residentId = payload.get("residentId");
         return ResponseEntity.ok(apartmentService.assignResident(id, residentId));
     }

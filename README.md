@@ -140,7 +140,7 @@ classDiagram
 
 ## 3. Schéma de l'Architecture (Les 6 Applications et leurs Ports)
 
-L'architecture globale repose sur **six applications Spring Boot** interconnectées pour assurer la centralisation de configuration, l'enregistrement, la découverte et le routage :
+L’architecture globale repose sur plusieurs applications Spring Boot interconnectées pour assurer la centralisation de configuration, l’enregistrement, la découverte, le routage et la notification asynchrone :
 
 ```mermaid
 flowchart TB
@@ -200,6 +200,7 @@ flowchart TB
 | **4** | **Service Incidents** | `service-incidents` | **8082** | Gestion des tickets de pannes et des ordres de travail (artisans) |
 | **5** | **Service Finances** | `service-finances` | **8083** | Gestion des appels de charges, des paiements et du budget |
 | **6** | **Service Demo** | `service-demo` | **8099** | Preuve de découverte dynamique instantanée sans redémarrage de la Gateway |
+| **7** | **Service Notifications** | `service-notifications` | **8084** | Consommation des événements RabbitMQ et envoi des emails |
 
 ---
 
@@ -309,9 +310,83 @@ Conformément au barème d'évaluation V4 :
 
 ---
 
-## 8. Versionnage Git & Jalons Livrés
+## 8. Communication Asynchrone et Notifications (Jalon V5)
+
+Le Jalon V5 utilise RabbitMQ pour découpler la création d'un incident de l'envoi de sa notification.
+
+### Architecture V5
+
+```mermaid
+flowchart LR
+    Client["Client / Postman"] --> Gateway["API Gateway :8080"]
+    Gateway --> Incidents["service-incidents :8082"]
+    Incidents -->|IncidentCreatedEvent\nrouting key incident.created| Exchange["RabbitMQ Exchange\nmybuilding.events"]
+    Exchange --> Queue["Queue\nnotifications.incident-created"]
+    Queue --> Notifications["service-notifications :8084"]
+    Notifications -->|SMTP| MailHog["MailHog\nSMTP :1025 / UI :8025"]
+    Incidents -.->|Eureka| Eureka["Eureka :8761"]
+    Notifications -.->|Eureka| Eureka
+```
+
+### Démarrage de RabbitMQ et MailHog
+
+Depuis la racine du projet :
+
+```bash
+docker compose up -d rabbitmq mailhog
+```
+
+Interfaces :
+
+* RabbitMQ Management : `http://localhost:15672`
+* Identifiants RabbitMQ : `mybuilding` / `mybuilding`
+* MailHog : `http://localhost:8025`
+
+Le broker est exposé sur le port AMQP `5672`. MailHog reçoit les emails SMTP sur le port `1025` sans envoyer de message vers Internet.
+
+### Contrat de l'événement
+
+`IncidentCreatedEvent` contient :
+
+* `ticketId`
+* `apartmentId`
+* `description`
+* `priority`
+* `recipientEmail`
+* `occurredAt`
+
+Le Publisher de `service-incidents` publie sur l'exchange `mybuilding.events` avec la routing key `incident.created`. Le Consumer de `service-notifications` consomme la queue durable `notifications.incident-created`.
+
+### Démarrage complet
+
+```bash
+docker compose up -d rabbitmq mailhog
+mvn -pl eureka-server spring-boot:run
+mvn -pl config-server spring-boot:run
+mvn -pl service-residents spring-boot:run
+mvn -pl service-incidents spring-boot:run
+mvn -pl service-notifications spring-boot:run
+mvn -pl api-gateway spring-boot:run
+```
+
+Le service de notifications charge sa configuration depuis `config-repo/service-notifications.properties` et s'enregistre dans Eureka sous le nom `service-notifications`.
+
+### Validation Postman
+
+Dans `MyBuilding.postman_collection.json`, exécuter le dossier **07 - Asynchrone RabbitMQ & Notifications (Jalon V5)** :
+
+1. `7.1 - Créer un ticket et publier IncidentCreatedEvent` vérifie le `201 Created` et mémorise l'identifiant du ticket.
+2. `7.2 - Vérifier la consommation et l'envoi du mail` appelle `GET /api/notifications/last` via la Gateway et vérifie le statut `SENT`.
+3. Ouvrir `http://localhost:8025` pour confirmer visuellement la réception du message email.
+
+L'endpoint de contrôle `GET /api/notifications/last` est une preuve de consommation en mémoire du dernier événement. La confirmation finale de livraison email est visible dans MailHog.
+
+---
+
+## 9. Versionnage Git & Jalons Livrés
 
 * **Jalon V0 & V1** : Tags `v1.0` / `jalon-1`
 * **Jalon V2 & V3** : Tag `v3.0.0-jalon3`
 * **Jalon V4** : Tag `v4.0.0-jalon4` (Communication synchrone OpenFeign & DTOs composés)
+* **Jalon V5** : RabbitMQ, `IncidentCreatedEvent`, Consumer de notifications et SMTP MailHog
 * **Dépôt GitHub** : [https://github.com/SAADOUARRAD/MyBuilding](https://github.com/SAADOUARRAD/MyBuilding)

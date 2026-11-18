@@ -1,0 +1,23 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: mybuilding-rabbitmq
+    hostname: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: mybuilding
+      RABBITMQ_DEFAULT_PASS: mybuilding
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: mybuilding-mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+volumes:
+  rabbitmq-data:

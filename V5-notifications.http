@@ -1,0 +1,12 @@
+
+### V5 - 7.1 Créer un ticket et publier IncidentCreatedEvent
+
+POST http://localhost:8080/api/tickets
+Content-Type: application/json
+Accept: application/json
+
+{
+  "apartmentId": 1,
+  "description": "Fuite d'eau détectée dans la cuisine de l'appartement",
+  "priorite": "HAUTE"
+}

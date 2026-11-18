@@ -28,7 +28,7 @@ public class ResidentController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ResidentResponseDTO> getById(@PathVariable Long id) {
+    public ResponseEntity<ResidentResponseDTO> getById(@PathVariable("id") Long id) {
         return ResponseEntity.ok(residentService.getById(id));
     }
 
@@ -39,18 +39,18 @@ public class ResidentController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ResidentResponseDTO> update(@PathVariable Long id, @Valid @RequestBody ResidentRequestDTO dto) {
+    public ResponseEntity<ResidentResponseDTO> update(@PathVariable("id") Long id, @Valid @RequestBody ResidentRequestDTO dto) {
         return ResponseEntity.ok(residentService.update(id, dto));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
+    public ResponseEntity<Void> delete(@PathVariable("id") Long id) {
         residentService.delete(id);
         return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/{id}/solde")
-    public ResponseEntity<ResidentResponseDTO> updateSolde(@PathVariable Long id, @RequestBody Map<String, BigDecimal> payload) {
+    public ResponseEntity<ResidentResponseDTO> updateSolde(@PathVariable("id") Long id, @RequestBody Map<String, BigDecimal> payload) {
         BigDecimal delta = payload.getOrDefault("delta", BigDecimal.ZERO);
         return ResponseEntity.ok(residentService.updateSolde(id, delta));
     }
