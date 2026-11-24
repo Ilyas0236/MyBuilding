@@ -3,11 +3,14 @@ package com.mybuilding.incidents.service;
 import com.mybuilding.incidents.feignClient.ApartmentDTO;
 import com.mybuilding.incidents.feignClient.ResidentDTO;
 import com.mybuilding.incidents.feignClient.ResidentsFeignClient;
+import feign.FeignException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class ResidentsServiceClient {
@@ -32,7 +35,10 @@ public class ResidentsServiceClient {
     }
 
     public ApartmentDTO fallbackGetApartment(Long id, Throwable throwable) {
-        log.warn("Fallback déclenché pour getApartmentById({}): {}", id, throwable.getMessage());
+        if (throwable instanceof FeignException.NotFound || (throwable.getCause() instanceof FeignException.NotFound)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "L'appartement spécifié n'existe pas : " + id);
+        }
+        log.warn("Fallback de résilience déclenché pour getApartmentById({}): {}", id, throwable.getMessage());
         ApartmentDTO fallback = new ApartmentDTO();
         fallback.setId(id);
         fallback.setNumero("INDISPONIBLE (CircuitBreaker)");
@@ -41,7 +47,10 @@ public class ResidentsServiceClient {
     }
 
     public ResidentDTO fallbackGetResident(Long id, Throwable throwable) {
-        log.warn("Fallback déclenché pour getResidentById({}): {}", id, throwable.getMessage());
+        if (throwable instanceof FeignException.NotFound || (throwable.getCause() instanceof FeignException.NotFound)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Le résident spécifié n'existe pas : " + id);
+        }
+        log.warn("Fallback de résilience déclenché pour getResidentById({}): {}", id, throwable.getMessage());
         ResidentDTO fallback = new ResidentDTO();
         fallback.setId(id);
         fallback.setNom("Service Résidents Indisponible");
