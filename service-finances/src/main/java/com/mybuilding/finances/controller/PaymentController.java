@@ -2,6 +2,7 @@ package com.mybuilding.finances.controller;
 
 import com.mybuilding.finances.dto.PaymentRequestDTO;
 import com.mybuilding.finances.dto.PaymentResponseDTO;
+import com.mybuilding.finances.idempotency.IdempotencyService;
 import com.mybuilding.finances.model.MoyenPaiement;
 import com.mybuilding.finances.repository.PaymentRepository;
 import com.mybuilding.finances.service.PaymentService;
@@ -21,10 +22,12 @@ public class PaymentController {
 
     private final PaymentService paymentService;
     private final PaymentRepository paymentRepository;
+    private final IdempotencyService idempotencyService;
 
-    public PaymentController(PaymentService paymentService, PaymentRepository paymentRepository) {
+    public PaymentController(PaymentService paymentService, PaymentRepository paymentRepository, IdempotencyService idempotencyService) {
         this.paymentService = paymentService;
         this.paymentRepository = paymentRepository;
+        this.idempotencyService = idempotencyService;
     }
 
     @PostConstruct
@@ -50,7 +53,10 @@ public class PaymentController {
     }
 
     @PostMapping
-    public ResponseEntity<PaymentResponseDTO> recordPayment(@Valid @RequestBody PaymentRequestDTO dto) {
+    public ResponseEntity<PaymentResponseDTO> recordPayment(
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @Valid @RequestBody PaymentRequestDTO dto) {
+        idempotencyService.validateAndRegister(idempotencyKey, "PAYMENT");
         PaymentResponseDTO created = paymentService.recordPayment(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }

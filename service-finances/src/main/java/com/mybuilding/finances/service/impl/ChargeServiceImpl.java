@@ -5,7 +5,7 @@ import com.mybuilding.finances.dto.ChargeResponseDTO;
 import com.mybuilding.finances.dto.ChargeResponseFullDTO;
 import com.mybuilding.finances.feignClient.ApartmentDTO;
 import com.mybuilding.finances.feignClient.ResidentDTO;
-import com.mybuilding.finances.feignClient.ResidentsFeignClient;
+import com.mybuilding.finances.service.ResidentsServiceClient;
 import com.mybuilding.finances.mapper.FinanceMapper;
 import com.mybuilding.finances.model.Charge;
 import com.mybuilding.finances.model.StatutCharge;
@@ -24,21 +24,20 @@ public class ChargeServiceImpl implements ChargeService {
 
     private final ChargeRepository chargeRepository;
     private final FinanceMapper financeMapper;
-    private final ResidentsFeignClient residentsFeignClient;
+    private final ResidentsServiceClient residentsServiceClient;
 
     public ChargeServiceImpl(ChargeRepository chargeRepository,
                              FinanceMapper financeMapper,
-                             ResidentsFeignClient residentsFeignClient) {
+                             ResidentsServiceClient residentsServiceClient) {
         this.chargeRepository = chargeRepository;
         this.financeMapper = financeMapper;
-        this.residentsFeignClient = residentsFeignClient;
+        this.residentsServiceClient = residentsServiceClient;
     }
 
     @Override
     public ChargeResponseDTO create(ChargeRequestDTO dto) {
-        // --- Jalon V4 : Validation préalable de la référence distante via OpenFeign ---
-        // Vérifie que l'appartement existe réellement dans service-residents avant création
-        residentsFeignClient.getApartmentById(dto.getApartmentId());
+        // --- Jalon V4 & V6 : Validation distante avec Résilience (CircuitBreaker / Retry / Timeout) ---
+        residentsServiceClient.getApartmentById(dto.getApartmentId());
 
         if (chargeRepository.existsByApartmentIdAndPeriode(dto.getApartmentId(), dto.getPeriode())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
@@ -93,7 +92,6 @@ public class ChargeServiceImpl implements ChargeService {
     @Override
     @Transactional(readOnly = true)
     public ChargeResponseFullDTO getChargeFullById(Long id) {
-        // --- Jalon V4 : Agrégation et consultation enrichie (DTO composé) ---
         Charge charge = chargeRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Charge introuvable avec l'id : " + id));
 
@@ -105,18 +103,17 @@ public class ChargeServiceImpl implements ChargeService {
         fullDto.setMontantPaye(charge.getMontantPaye());
         fullDto.setStatut(charge.getStatut());
 
-        // 1. Récupération distante de l'Appartement via OpenFeign
+        // Récupération distante avec Résilience (CircuitBreaker & Fallback)
         try {
-            ApartmentDTO apartment = residentsFeignClient.getApartmentById(charge.getApartmentId());
+            ApartmentDTO apartment = residentsServiceClient.getApartmentById(charge.getApartmentId());
             if (apartment != null) {
                 fullDto.setApartmentNumero(apartment.getNumero());
                 fullDto.setEtage(apartment.getEtage());
                 fullDto.setSuperficie(apartment.getSuperficie());
                 fullDto.setResidentId(apartment.getResidentId());
 
-                // 2. Récupération distante du Résident associé via OpenFeign
                 if (apartment.getResidentId() != null) {
-                    ResidentDTO resident = residentsFeignClient.getResidentById(apartment.getResidentId());
+                    ResidentDTO resident = residentsServiceClient.getResidentById(apartment.getResidentId());
                     if (resident != null) {
                         fullDto.setResidentNom(resident.getNom());
                         fullDto.setResidentEmail(resident.getEmail());
@@ -125,7 +122,7 @@ public class ChargeServiceImpl implements ChargeService {
                 }
             }
         } catch (Exception e) {
-            // Tolérance si le service distant est temporairement dégradé lors de la lecture
+            // Tolérance si dégradation
         }
 
         return fullDto;

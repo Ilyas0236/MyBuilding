@@ -1756,6 +1756,275 @@
                                                   }
                                   }
                               ]
+                 },
+                 {
+                     "name":  "08 - Résilience, Gestion d\u0027Erreurs \u0026 Idempotence (Jalon V6)",
+                     "item":  [
+                                  {
+                                      "request":  {
+                                                      "url":  {
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "raw":  "{{baseUrl}}/api/residents",
+                                                                  "path":  [
+                                                                               "api",
+                                                                               "residents"
+                                                                           ]
+                                                              },
+                                                      "method":  "POST",
+                                                      "body":  {
+                                                                   "raw":  "{\"nom\": \"Youssef Idem\", \"email\": \"youssef.idem.v6@example.com\", \"telephone\": \"0612345678\", \"role\": \"PROPRIETAIRE\"}",
+                                                                   "mode":  "raw"
+                                                               },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Idempotency-Key",
+                                                                         "value":  "RES-KEY-TEST-V6-001"
+                                                                     }
+                                                                 ]
+                                                  },
+                                      "name":  "8.1 - [Idempotence] Création Résident avec Idempotency-Key (1er appel : 201)",
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Status code is 201 Created\u0027, function () {",
+                                                                                    "    pm.response.to.have.status(201);",
+                                                                                    "});"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "request":  {
+                                                      "url":  {
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "raw":  "{{baseUrl}}/api/residents",
+                                                                  "path":  [
+                                                                               "api",
+                                                                               "residents"
+                                                                           ]
+                                                              },
+                                                      "method":  "POST",
+                                                      "body":  {
+                                                                   "raw":  "{\"nom\": \"Youssef Idem\", \"email\": \"youssef.idem.v6@example.com\", \"telephone\": \"0612345678\", \"role\": \"PROPRIETAIRE\"}",
+                                                                   "mode":  "raw"
+                                                               },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Idempotency-Key",
+                                                                         "value":  "RES-KEY-TEST-V6-001"
+                                                                     }
+                                                                 ]
+                                                  },
+                                      "name":  "8.2 - [Idempotence] Rejeu Création Résident avec même clé (2ème appel : 409 Conflict)",
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Status code is 409 Conflict\u0027, function () {",
+                                                                                    "    pm.response.to.have.status(409);",
+                                                                                    "});",
+                                                                                    "pm.test(\u0027Message mentionne idempotence\u0027, function () {",
+                                                                                    "    var json = pm.response.json();",
+                                                                                    "    pm.expect(json.message).to.include(\u0027idempotence\u0027);",
+                                                                                    "});"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "request":  {
+                                                      "url":  {
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "raw":  "{{baseUrl}}/api/payments",
+                                                                  "path":  [
+                                                                               "api",
+                                                                               "payments"
+                                                                           ]
+                                                              },
+                                                      "method":  "POST",
+                                                      "body":  {
+                                                                   "raw":  "{\"chargeId\": 1, \"datePaiement\": \"2026-11-23\", \"montant\": 150.00, \"moyenPaiement\": \"VIREMENT\"}",
+                                                                   "mode":  "raw"
+                                                               },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Idempotency-Key",
+                                                                         "value":  "PAY-KEY-TEST-V6-001"
+                                                                     }
+                                                                 ]
+                                                  },
+                                      "name":  "8.3 - [Idempotence] Enregistrement Paiement avec Idempotency-Key (1er appel : 201)",
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Status code is 201 Created\u0027, function () {",
+                                                                                    "    pm.response.to.have.status(201);",
+                                                                                    "});"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "request":  {
+                                                      "url":  {
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "raw":  "{{baseUrl}}/api/payments",
+                                                                  "path":  [
+                                                                               "api",
+                                                                               "payments"
+                                                                           ]
+                                                              },
+                                                      "method":  "POST",
+                                                      "body":  {
+                                                                   "raw":  "{\"chargeId\": 1, \"datePaiement\": \"2026-11-23\", \"montant\": 150.00, \"moyenPaiement\": \"VIREMENT\"}",
+                                                                   "mode":  "raw"
+                                                               },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Idempotency-Key",
+                                                                         "value":  "PAY-KEY-TEST-V6-001"
+                                                                     }
+                                                                 ]
+                                                  },
+                                      "name":  "8.4 - [Idempotence] Rejeu Paiement avec même clé (2ème appel : 409 Conflict)",
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Status code is 409 Conflict\u0027, function () {",
+                                                                                    "    pm.response.to.have.status(409);",
+                                                                                    "});",
+                                                                                    "pm.test(\u0027Message mentionne idempotence financiere\u0027, function () {",
+                                                                                    "    var json = pm.response.json();",
+                                                                                    "    pm.expect(json.message).to.include(\u0027idempotence\u0027);",
+                                                                                    "});"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "url":  {
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "raw":  "{{baseUrl}}/api/tickets/1/detail",
+                                                                  "path":  [
+                                                                               "api",
+                                                                               "tickets",
+                                                                               "1",
+                                                                               "detail"
+                                                                           ]
+                                                              },
+                                                      "header":  [
+
+                                                                 ]
+                                                  },
+                                      "name":  "8.5 - [Résilience Feign \u0026 Fallback] Consultation Ticket enrichi (Résilience4j)",
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Status code is 200 OK\u0027, function () {",
+                                                                                    "    pm.response.to.have.status(200);",
+                                                                                    "});",
+                                                                                    "pm.test(\u0027Ticket contient les donnees de base meme en fallback\u0027, function () {",
+                                                                                    "    var json = pm.response.json();",
+                                                                                    "    pm.expect(json.id).to.eql(1);",
+                                                                                    "    pm.expect(json.titre).to.not.be.empty;",
+                                                                                    "});"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "request":  {
+                                                      "url":  {
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "raw":  "{{baseUrl}}/api/residents",
+                                                                  "path":  [
+                                                                               "api",
+                                                                               "residents"
+                                                                           ]
+                                                              },
+                                                      "method":  "POST",
+                                                      "body":  {
+                                                                   "raw":  "{\"nom\": \"\", \"email\": \"invalid-email-format\"}",
+                                                                   "mode":  "raw"
+                                                               },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ]
+                                                  },
+                                      "name":  "8.6 - [Gestion Centralisée d\u0027Erreurs] Validation DTO échouée (400 Bad Request)",
+                                      "event":  [
+                                                    {
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Status code is 400 Bad Request\u0027, function () {",
+                                                                                    "    pm.response.to.have.status(400);",
+                                                                                    "});",
+                                                                                    "pm.test(\u0027Format d erreur uniforme ControllerAdvice\u0027, function () {",
+                                                                                    "    var json = pm.response.json();",
+                                                                                    "    pm.expect(json.status).to.eql(400);",
+                                                                                    "    pm.expect(json.error).to.eql(\u0027Validation Failed\u0027);",
+                                                                                    "    pm.expect(json.errors).to.be.an(\u0027object\u0027);",
+                                                                                    "});"
+                                                                                ],
+                                                                       "type":  "text/javascript"
+                                                                   },
+                                                        "listen":  "test"
+                                                    }
+                                                ]
+                                  }
+                              ]
                  }
              ]
 }

@@ -383,10 +383,61 @@ L'endpoint de contrôle `GET /api/notifications/last` est une preuve de consomma
 
 ---
 
-## 9. Versionnage Git & Jalons Livrés
+## 9. Résilience, Gestion d'Erreurs et Idempotence (Jalon V6)
+
+Le Jalon V6 renforce la robustesse de l'écosystème MyBuilding contre les pannes partielles, les erreurs de communication et les requêtes dupliquées.
+
+### 9.1 Résilience des Appels OpenFeign (Resilience4j)
+La résilience est intégrée sur 2 flux d'appels synchrones OpenFeign critiques ciblant `service-residents` :
+1. **`service-incidents` ➔ `service-residents`** : consultation enrichie des tickets avec informations du déclarant (`/api/tickets/{id}/detail`).
+2. **`service-finances` ➔ `service-residents`** : consultation enrichie des charges avec profil complet du résident débiteur (`/api/charges/{id}/detail`).
+
+Pour chaque appel, trois motifs de résilience sont combinés via **Resilience4j** et configurés dans le Config Server :
+* **Circuit Breaker** (`@CircuitBreaker`) : Fenêtre glissante de 10 requêtes, basculement en état `OPEN` dès 50% d'échecs, maintien ouvert pendant 5 secondes avant transition `HALF_OPEN`.
+* **Retry** (`@Retry`) : 3 tentatives automatiques avec backoff exponentiel de 500ms (multiplicateur 2) avant déclaration d'échec.
+* **TimeLimiter / Timeout** : Interruption stricte des appels lents dépassant 2 secondes.
+* **Méthodes de Repli (Fallback)** : En cas de coupure du service distant ou d'ouverture du disjoncteur, la méthode `fallbackGetResidentById` renvoie immédiatement un objet `ResidentDTO` de secours (ex: *"Résident temporairement indisponible"*), évitant la propagation de l'erreur 500 au client final.
+
+### 9.2 Gestion Centralisée des Erreurs (@RestControllerAdvice)
+Chaque microservice intègre une classe `GlobalExceptionHandler` annotée `@RestControllerAdvice` qui intercepte l'ensemble des exceptions applicatives et produit un format de réponse d'erreur uniforme :
+* **400 Bad Request** : Validation des DTOs `@Valid` (`@NotBlank`, `@Email`, etc.) avec dictionnaire structuré `errors: { champ: message }`.
+* **404 Not Found** : Ressource locale ou distante introuvable.
+* **409 Conflict** : Conflit d'intégrité ou tentative de rejeu sur une opération idempotente.
+* **502 / 503 Bad Gateway / Service Unavailable** : Pannes de communication inter-services OpenFeign capturées élégamment.
+
+```json
+{
+  "timestamp": "2026-11-23T23:30:00",
+  "status": 400,
+  "error": "Validation Failed",
+  "errors": {
+    "email": "Le format de l'email est invalide"
+  },
+  "path": "/api/residents"
+}
+```
+
+### 9.3 Idempotence des Créations
+Pour empêcher le double enregistrement (ex: double clic de l'utilisateur, rejeu réseau, double transaction financière), le pattern **Idempotency-Key** est mis en œuvre :
+* Support de l'en-tête HTTP optionnel `Idempotency-Key: <CLE-UNIQUE>` sur les endpoints `POST /api/residents` et `POST /api/payments`.
+* Table dédiée `idempotency_keys` gérée par `IdempotencyService`.
+* **1er appel** : La clé est validée et enregistrée en base -> `201 Created`.
+* **2ème appel (doublon)** : La clé est détectée comme déjà traitée -> Réponse immédiate `409 Conflict` avec message d'avertissement, protégeant l'intégrité financière et métier.
+
+### 9.4 Scénarios de Validation Postman
+Dans `MyBuilding.postman_collection.json`, exécuter le dossier **08 - Résilience, Gestion d'Erreurs & Idempotence (Jalon V6)** :
+* `8.1` & `8.2` : Test d'idempotence sur la création de résident (201 Created puis 409 Conflict sur la même clé).
+* `8.3` & `8.4` : Test d'idempotence sur le règlement financier d'une charge (201 Created puis 409 Conflict).
+* `8.5` : Consultation de ticket enrichi avec repli gracieux Resilience4j.
+* `8.6` : Vérification du format uniforme d'erreur 400 via `@RestControllerAdvice`.
+
+---
+
+## 10. Versionnage Git & Jalons Livrés
 
 * **Jalon V0 & V1** : Tags `v1.0` / `jalon-1`
 * **Jalon V2 & V3** : Tag `v3.0.0-jalon3`
 * **Jalon V4** : Tag `v4.0.0-jalon4` (Communication synchrone OpenFeign & DTOs composés)
-* **Jalon V5** : RabbitMQ, `IncidentCreatedEvent`, Consumer de notifications et SMTP MailHog
+* **Jalon V5** : Tag `v5.0.0-jalon5` (RabbitMQ, `IncidentCreatedEvent`, Consumer notifications & MailHog)
+* **Jalon V6** : Tag `v6.0.0` (Resilience4j Circuit Breaker/Retry/Timeout, ControllerAdvice, Idempotence)
 * **Dépôt GitHub** : [https://github.com/SAADOUARRAD/MyBuilding](https://github.com/SAADOUARRAD/MyBuilding)
