@@ -2,6 +2,7 @@ package com.mybuilding.residents.controller;
 
 import com.mybuilding.residents.dto.ResidentRequestDTO;
 import com.mybuilding.residents.dto.ResidentResponseDTO;
+import com.mybuilding.residents.idempotency.IdempotencyService;
 import com.mybuilding.residents.service.ResidentService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -17,9 +18,11 @@ import java.util.Map;
 public class ResidentController {
 
     private final ResidentService residentService;
+    private final IdempotencyService idempotencyService;
 
-    public ResidentController(ResidentService residentService) {
+    public ResidentController(ResidentService residentService, IdempotencyService idempotencyService) {
         this.residentService = residentService;
+        this.idempotencyService = idempotencyService;
     }
 
     @GetMapping
@@ -33,7 +36,10 @@ public class ResidentController {
     }
 
     @PostMapping
-    public ResponseEntity<ResidentResponseDTO> create(@Valid @RequestBody ResidentRequestDTO dto) {
+    public ResponseEntity<ResidentResponseDTO> create(
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @Valid @RequestBody ResidentRequestDTO dto) {
+        idempotencyService.validateAndRegister(idempotencyKey, "RESIDENT");
         ResidentResponseDTO created = residentService.create(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }

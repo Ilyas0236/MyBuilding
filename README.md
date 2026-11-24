@@ -140,7 +140,7 @@ classDiagram
 
 ## 3. Schéma de l'Architecture (Les 6 Applications et leurs Ports)
 
-L'architecture globale repose sur **six applications Spring Boot** interconnectées pour assurer la centralisation de configuration, l'enregistrement, la découverte et le routage :
+L’architecture globale repose sur plusieurs applications Spring Boot interconnectées pour assurer la centralisation de configuration, l’enregistrement, la découverte, le routage et la notification asynchrone :
 
 ```mermaid
 flowchart TB
@@ -200,6 +200,7 @@ flowchart TB
 | **4** | **Service Incidents** | `service-incidents` | **8082** | Gestion des tickets de pannes et des ordres de travail (artisans) |
 | **5** | **Service Finances** | `service-finances` | **8083** | Gestion des appels de charges, des paiements et du budget |
 | **6** | **Service Demo** | `service-demo` | **8099** | Preuve de découverte dynamique instantanée sans redémarrage de la Gateway |
+| **7** | **Service Notifications** | `service-notifications` | **8084** | Consommation des événements RabbitMQ et envoi des emails |
 
 ---
 
@@ -309,9 +310,134 @@ Conformément au barème d'évaluation V4 :
 
 ---
 
-## 8. Versionnage Git & Jalons Livrés
+## 8. Communication Asynchrone et Notifications (Jalon V5)
+
+Le Jalon V5 utilise RabbitMQ pour découpler la création d'un incident de l'envoi de sa notification.
+
+### Architecture V5
+
+```mermaid
+flowchart LR
+    Client["Client / Postman"] --> Gateway["API Gateway :8080"]
+    Gateway --> Incidents["service-incidents :8082"]
+    Incidents -->|IncidentCreatedEvent\nrouting key incident.created| Exchange["RabbitMQ Exchange\nmybuilding.events"]
+    Exchange --> Queue["Queue\nnotifications.incident-created"]
+    Queue --> Notifications["service-notifications :8084"]
+    Notifications -->|SMTP| MailHog["MailHog\nSMTP :1025 / UI :8025"]
+    Incidents -.->|Eureka| Eureka["Eureka :8761"]
+    Notifications -.->|Eureka| Eureka
+```
+
+### Démarrage de RabbitMQ et MailHog
+
+Depuis la racine du projet :
+
+```bash
+docker compose up -d rabbitmq mailhog
+```
+
+Interfaces :
+
+* RabbitMQ Management : `http://localhost:15672`
+* Identifiants RabbitMQ : `mybuilding` / `mybuilding`
+* MailHog : `http://localhost:8025`
+
+Le broker est exposé sur le port AMQP `5672`. MailHog reçoit les emails SMTP sur le port `1025` sans envoyer de message vers Internet.
+
+### Contrat de l'événement
+
+`IncidentCreatedEvent` contient :
+
+* `ticketId`
+* `apartmentId`
+* `description`
+* `priority`
+* `recipientEmail`
+* `occurredAt`
+
+Le Publisher de `service-incidents` publie sur l'exchange `mybuilding.events` avec la routing key `incident.created`. Le Consumer de `service-notifications` consomme la queue durable `notifications.incident-created`.
+
+### Démarrage complet
+
+```bash
+docker compose up -d rabbitmq mailhog
+mvn -pl eureka-server spring-boot:run
+mvn -pl config-server spring-boot:run
+mvn -pl service-residents spring-boot:run
+mvn -pl service-incidents spring-boot:run
+mvn -pl service-notifications spring-boot:run
+mvn -pl api-gateway spring-boot:run
+```
+
+Le service de notifications charge sa configuration depuis `config-repo/service-notifications.properties` et s'enregistre dans Eureka sous le nom `service-notifications`.
+
+### Validation Postman
+
+Dans `MyBuilding.postman_collection.json`, exécuter le dossier **07 - Asynchrone RabbitMQ & Notifications (Jalon V5)** :
+
+1. `7.1 - Créer un ticket et publier IncidentCreatedEvent` vérifie le `201 Created` et mémorise l'identifiant du ticket.
+2. `7.2 - Vérifier la consommation et l'envoi du mail` appelle `GET /api/notifications/last` via la Gateway et vérifie le statut `SENT`.
+3. Ouvrir `http://localhost:8025` pour confirmer visuellement la réception du message email.
+
+L'endpoint de contrôle `GET /api/notifications/last` est une preuve de consommation en mémoire du dernier événement. La confirmation finale de livraison email est visible dans MailHog.
+
+---
+
+## 9. Résilience, Gestion d'Erreurs et Idempotence (Jalon V6)
+
+Le Jalon V6 renforce la robustesse de l'écosystème MyBuilding contre les pannes partielles, les erreurs de communication et les requêtes dupliquées.
+
+### 9.1 Résilience des Appels OpenFeign (Resilience4j)
+La résilience est intégrée sur 2 flux d'appels synchrones OpenFeign critiques ciblant `service-residents` :
+1. **`service-incidents` ➔ `service-residents`** : consultation enrichie des tickets avec informations du déclarant (`/api/tickets/{id}/detail`).
+2. **`service-finances` ➔ `service-residents`** : consultation enrichie des charges avec profil complet du résident débiteur (`/api/charges/{id}/detail`).
+
+Pour chaque appel, trois motifs de résilience sont combinés via **Resilience4j** et configurés dans le Config Server :
+* **Circuit Breaker** (`@CircuitBreaker`) : Fenêtre glissante de 10 requêtes, basculement en état `OPEN` dès 50% d'échecs, maintien ouvert pendant 5 secondes avant transition `HALF_OPEN`.
+* **Retry** (`@Retry`) : 3 tentatives automatiques avec backoff exponentiel de 500ms (multiplicateur 2) avant déclaration d'échec.
+* **TimeLimiter / Timeout** : Interruption stricte des appels lents dépassant 2 secondes.
+* **Méthodes de Repli (Fallback)** : En cas de coupure du service distant ou d'ouverture du disjoncteur, la méthode `fallbackGetResidentById` renvoie immédiatement un objet `ResidentDTO` de secours (ex: *"Résident temporairement indisponible"*), évitant la propagation de l'erreur 500 au client final.
+
+### 9.2 Gestion Centralisée des Erreurs (@RestControllerAdvice)
+Chaque microservice intègre une classe `GlobalExceptionHandler` annotée `@RestControllerAdvice` qui intercepte l'ensemble des exceptions applicatives et produit un format de réponse d'erreur uniforme :
+* **400 Bad Request** : Validation des DTOs `@Valid` (`@NotBlank`, `@Email`, etc.) avec dictionnaire structuré `errors: { champ: message }`.
+* **404 Not Found** : Ressource locale ou distante introuvable.
+* **409 Conflict** : Conflit d'intégrité ou tentative de rejeu sur une opération idempotente.
+* **502 / 503 Bad Gateway / Service Unavailable** : Pannes de communication inter-services OpenFeign capturées élégamment.
+
+```json
+{
+  "timestamp": "2026-11-23T23:30:00",
+  "status": 400,
+  "error": "Validation Failed",
+  "errors": {
+    "email": "Le format de l'email est invalide"
+  },
+  "path": "/api/residents"
+}
+```
+
+### 9.3 Idempotence des Créations
+Pour empêcher le double enregistrement (ex: double clic de l'utilisateur, rejeu réseau, double transaction financière), le pattern **Idempotency-Key** est mis en œuvre :
+* Support de l'en-tête HTTP optionnel `Idempotency-Key: <CLE-UNIQUE>` sur les endpoints `POST /api/residents` et `POST /api/payments`.
+* Table dédiée `idempotency_keys` gérée par `IdempotencyService`.
+* **1er appel** : La clé est validée et enregistrée en base -> `201 Created`.
+* **2ème appel (doublon)** : La clé est détectée comme déjà traitée -> Réponse immédiate `409 Conflict` avec message d'avertissement, protégeant l'intégrité financière et métier.
+
+### 9.4 Scénarios de Validation Postman
+Dans `MyBuilding.postman_collection.json`, exécuter le dossier **08 - Résilience, Gestion d'Erreurs & Idempotence (Jalon V6)** :
+* `8.1` & `8.2` : Test d'idempotence sur la création de résident (201 Created puis 409 Conflict sur la même clé).
+* `8.3` & `8.4` : Test d'idempotence sur le règlement financier d'une charge (201 Created puis 409 Conflict).
+* `8.5` : Consultation de ticket enrichi avec repli gracieux Resilience4j.
+* `8.6` : Vérification du format uniforme d'erreur 400 via `@RestControllerAdvice`.
+
+---
+
+## 10. Versionnage Git & Jalons Livrés
 
 * **Jalon V0 & V1** : Tags `v1.0` / `jalon-1`
 * **Jalon V2 & V3** : Tag `v3.0.0-jalon3`
 * **Jalon V4** : Tag `v4.0.0-jalon4` (Communication synchrone OpenFeign & DTOs composés)
+* **Jalon V5** : Tag `v5.0.0-jalon5` (RabbitMQ, `IncidentCreatedEvent`, Consumer notifications & MailHog)
+* **Jalon V6** : Tag `v6.0.0` (Resilience4j Circuit Breaker/Retry/Timeout, ControllerAdvice, Idempotence)
 * **Dépôt GitHub** : [https://github.com/SAADOUARRAD/MyBuilding](https://github.com/SAADOUARRAD/MyBuilding)

@@ -19,6 +19,7 @@
         <module>service-residents</module>
         <module>service-incidents</module>
         <module>service-finances</module>
+        <module>service-notifications</module>
     </modules>
 
     <profiles>
