@@ -5,6 +5,7 @@ import com.mybuilding.incidents.dto.TicketResponseDTO;
 import com.mybuilding.incidents.dto.TicketResponseFullDTO;
 import com.mybuilding.incidents.feignClient.ApartmentDTO;
 import com.mybuilding.incidents.feignClient.ResidentDTO;
+import com.mybuilding.incidents.idempotency.IdempotencyService;
 import com.mybuilding.incidents.service.ResidentsServiceClient;
 import com.mybuilding.incidents.event.IncidentCreatedEvent;
 import com.mybuilding.incidents.messaging.IncidentEventPublisher;
@@ -13,6 +14,8 @@ import com.mybuilding.incidents.model.StatutTicket;
 import com.mybuilding.incidents.model.Ticket;
 import com.mybuilding.incidents.repository.TicketRepository;
 import com.mybuilding.incidents.service.TicketService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,35 +28,54 @@ import java.time.Instant;
 @Transactional
 public class TicketServiceImpl implements TicketService {
 
+    private static final Logger log = LoggerFactory.getLogger(TicketServiceImpl.class);
+
     private final TicketRepository ticketRepository;
     private final IncidentMapper incidentMapper;
     private final ResidentsServiceClient residentsServiceClient;
     private final IncidentEventPublisher incidentEventPublisher;
+    private final IdempotencyService idempotencyService;
 
     public TicketServiceImpl(TicketRepository ticketRepository,
                              IncidentMapper incidentMapper,
                              ResidentsServiceClient residentsServiceClient,
-                             IncidentEventPublisher incidentEventPublisher) {
+                             IncidentEventPublisher incidentEventPublisher,
+                             IdempotencyService idempotencyService) {
         this.ticketRepository = ticketRepository;
         this.incidentMapper = incidentMapper;
         this.residentsServiceClient = residentsServiceClient;
         this.incidentEventPublisher = incidentEventPublisher;
+        this.idempotencyService = idempotencyService;
     }
 
     @Override
     public TicketResponseDTO create(TicketRequestDTO dto) {
-        // --- Jalon V4 & V6 : Validation distante avec Résilience (CircuitBreaker / Retry / Timeout) ---
+        return create(dto, null);
+    }
+
+    @Override
+    public TicketResponseDTO create(TicketRequestDTO dto, String idempotencyKey) {
+        idempotencyService.ensureNotProcessed(idempotencyKey);
+
+        // --- Jalon V4 & V6 : Validation distante avec Résilience (404 propagé, fallback => 503) ---
         ApartmentDTO apartment = residentsServiceClient.getApartmentById(dto.getApartmentId());
+        if (ResidentsServiceClient.isFallbackApartment(apartment)) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Service Résidents temporairement indisponible : validation de l'appartement impossible");
+        }
+
         String recipientEmail = null;
-        if (apartment != null && apartment.getResidentId() != null) {
+        if (apartment.getResidentId() != null) {
             ResidentDTO resident = residentsServiceClient.getResidentById(apartment.getResidentId());
-            if (resident != null) {
+            if (!ResidentsServiceClient.isFallbackResident(resident)) {
                 recipientEmail = resident.getEmail();
             }
         }
 
         Ticket ticket = incidentMapper.toEntity(dto);
         Ticket saved = ticketRepository.save(ticket);
+        idempotencyService.register(idempotencyKey, "TICKET");
+
         incidentEventPublisher.publish(new IncidentCreatedEvent(
                 saved.getId(),
                 saved.getApartmentId(),
@@ -114,7 +136,7 @@ public class TicketServiceImpl implements TicketService {
                 }
             }
         } catch (Exception e) {
-            // Tolérance si dégradation
+            log.warn("Dégradation lors de l'enrichissement du ticket #{}: {}", id, e.getMessage());
         }
 
         return fullDto;

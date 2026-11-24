@@ -3,7 +3,7 @@ package com.mybuilding.finances.service.impl;
 import com.mybuilding.finances.dto.PaymentRequestDTO;
 import com.mybuilding.finances.dto.PaymentResponseDTO;
 import com.mybuilding.finances.feignClient.ApartmentDTO;
-import com.mybuilding.finances.feignClient.ResidentsFeignClient;
+import com.mybuilding.finances.idempotency.IdempotencyService;
 import com.mybuilding.finances.mapper.FinanceMapper;
 import com.mybuilding.finances.model.Charge;
 import com.mybuilding.finances.model.Payment;
@@ -11,6 +11,9 @@ import com.mybuilding.finances.model.StatutCharge;
 import com.mybuilding.finances.repository.ChargeRepository;
 import com.mybuilding.finances.repository.PaymentRepository;
 import com.mybuilding.finances.service.PaymentService;
+import com.mybuilding.finances.service.ResidentsServiceClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,23 +28,35 @@ import java.util.Map;
 @Transactional
 public class PaymentServiceImpl implements PaymentService {
 
+    private static final Logger log = LoggerFactory.getLogger(PaymentServiceImpl.class);
+
     private final PaymentRepository paymentRepository;
     private final ChargeRepository chargeRepository;
     private final FinanceMapper financeMapper;
-    private final ResidentsFeignClient residentsFeignClient;
+    private final ResidentsServiceClient residentsServiceClient;
+    private final IdempotencyService idempotencyService;
 
     public PaymentServiceImpl(PaymentRepository paymentRepository,
                               ChargeRepository chargeRepository,
                               FinanceMapper financeMapper,
-                              ResidentsFeignClient residentsFeignClient) {
+                              ResidentsServiceClient residentsServiceClient,
+                              IdempotencyService idempotencyService) {
         this.paymentRepository = paymentRepository;
         this.chargeRepository = chargeRepository;
         this.financeMapper = financeMapper;
-        this.residentsFeignClient = residentsFeignClient;
+        this.residentsServiceClient = residentsServiceClient;
+        this.idempotencyService = idempotencyService;
     }
 
     @Override
     public PaymentResponseDTO recordPayment(PaymentRequestDTO dto) {
+        return recordPayment(dto, null);
+    }
+
+    @Override
+    public PaymentResponseDTO recordPayment(PaymentRequestDTO dto, String idempotencyKey) {
+        idempotencyService.ensureNotProcessed(idempotencyKey);
+
         Charge charge = chargeRepository.findById(dto.getChargeId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Charge introuvable : id=" + dto.getChargeId() + " (RM-PAY-01)"));
 
@@ -68,18 +83,18 @@ public class PaymentServiceImpl implements PaymentService {
 
         Payment payment = financeMapper.toEntity(dto);
         Payment saved = paymentRepository.save(payment);
+        idempotencyService.register(idempotencyKey, "PAYMENT");
 
-        // --- Jalon V4 : Mise à jour du solde du résident via OpenFeign ---
-        // Après paiement, on déduit le montant du solde du résident (delta négatif)
+        // --- Jalon V4 & V6 : Mise à jour résiliente du solde du résident via OpenFeign ---
         try {
-            ApartmentDTO apartment = residentsFeignClient.getApartmentById(charge.getApartmentId());
-            if (apartment != null && apartment.getResidentId() != null) {
+            ApartmentDTO apartment = residentsServiceClient.getApartmentById(charge.getApartmentId());
+            if (!ResidentsServiceClient.isFallbackApartment(apartment) && apartment.getResidentId() != null) {
                 Map<String, Object> payload = new HashMap<>();
                 payload.put("delta", dto.getMontant().negate()); // delta négatif = débit
-                residentsFeignClient.updateResidentSolde(apartment.getResidentId(), payload);
+                residentsServiceClient.updateResidentSolde(apartment.getResidentId(), payload);
             }
         } catch (Exception e) {
-            // On logue mais on ne fait pas échouer le paiement si le service est temporairement indisponible
+            log.warn("Mise à jour distante du solde différée pour la charge #{}: {}", charge.getId(), e.getMessage());
         }
 
         return financeMapper.toResponseDTO(saved);

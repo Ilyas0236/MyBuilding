@@ -1,0 +1,281 @@
+### ===================================================================
+### MYBUILDING - TESTS HTTP INTÉGRÉS DANS INTELLIJ (JALONS V1 -> V6)
+### ===================================================================
+@baseUrl = http://localhost:8080
+
+### ===================================================================
+### 🌟 JALON V4 : OPENFEIGN & CONSULTATION ENRICHIE (DTOs COMPOSÉS)
+### ===================================================================
+
+### 4.1 [Jalon V4 - Valide] Consultation enrichie Ticket (DTO Composé)
+# Récupère le ticket local + nom/email du résident + numéro d'appartement via OpenFeign
+GET {{baseUrl}}/api/tickets/1/detail
+Accept: application/json
+
+###
+
+### 4.2 [Jalon V4 - Valide] Création Ticket avec validation distante Appartement
+# Feign vérifie d'abord que l'appartement 1 existe bien chez service-residents
+POST {{baseUrl}}/api/tickets
+Content-Type: application/json
+
+{
+  "apartmentId": 1,
+  "description": "Fuite d'eau constatée sous l'évier de la cuisine",
+  "priorite": "HAUTE"
+}
+
+###
+
+### 4.3 [Jalon V4 - Erreur 404] Création Ticket avec appartement inexistant (ID 9999)
+# Feign détecte l'absence de l'appartement -> GlobalExceptionHandler renvoie 404
+POST {{baseUrl}}/api/tickets
+Content-Type: application/json
+
+{
+  "apartmentId": 9999,
+  "description": "Test avec un appartement inexistant",
+  "priorite": "BASSE"
+}
+
+###
+
+### 4.4 [Jalon V4 - Valide] Consultation enrichie Charge (DTO Composé)
+# Récupère la charge locale + détails appartement et résident via OpenFeign
+GET {{baseUrl}}/api/charges/1/detail
+Accept: application/json
+
+###
+
+### 4.5 [Jalon V4 - Valide] Création Charge avec validation distante Appartement
+POST {{baseUrl}}/api/charges
+Content-Type: application/json
+
+{
+  "apartmentId": 1,
+  "periode": "2026-12",
+  "montant": 1600.00
+}
+
+###
+
+### 4.6 [Jalon V4 - Erreur 404] Création Charge avec appartement inexistant
+POST {{baseUrl}}/api/charges
+Content-Type: application/json
+
+{
+  "apartmentId": 9999,
+  "periode": "2026-12",
+  "montant": 1600.00
+}
+
+###
+
+### 4.7 [Jalon V4 - Valide] Consultation enrichie WorkOrder (DTO Composé)
+GET {{baseUrl}}/api/work-orders/1/detail
+Accept: application/json
+
+###
+
+### 4.8 [Jalon V4 - Valide] Enregistrement d'un Paiement et mise à jour solde Résident via Feign
+POST {{baseUrl}}/api/payments
+Content-Type: application/json
+
+{
+  "chargeId": 1,
+  "date": "2026-11-24",
+  "montant": 300.00,
+  "moyen": "VIREMENT"
+}
+
+###
+
+### ===================================================================
+### 🏢 JALON V1 & V2 : DONNÉES MÉTIER VIA L'API GATEWAY (PORT 8080)
+### ===================================================================
+
+### 1.1 Récupérer tous les résidents
+GET {{baseUrl}}/api/residents
+Accept: application/json
+
+###
+
+### 1.2 Récupérer le résident 1 (Ahmed Alami)
+GET {{baseUrl}}/api/residents/1
+Accept: application/json
+
+###
+
+### 1.3 Récupérer tous les appartements
+GET {{baseUrl}}/api/apartments
+Accept: application/json
+
+###
+
+### 2.1 Récupérer tous les tickets locaux
+GET {{baseUrl}}/api/tickets
+Accept: application/json
+
+###
+
+### 3.1 Récupérer toutes les charges
+GET {{baseUrl}}/api/charges
+Accept: application/json
+
+###
+
+### 3.2 Récupérer les charges impayées
+GET {{baseUrl}}/api/charges/unpaid
+Accept: application/json
+
+###
+
+### ===================================================================
+### ⚙️ JALON V2 & V3 : SERVICES D'INFRASTRUCTURE
+### ===================================================================
+
+### Config Server : Vérifier la configuration distribuée de service-residents
+GET http://localhost:8888/service-residents/default
+Accept: application/json
+
+###
+
+### Config Server : Vérifier la configuration distribuée de api-gateway (profil statique)
+GET http://localhost:8888/api-gateway/statique
+Accept: application/json
+
+###
+
+### Config Server : Vérifier la configuration distribuée de service-notifications
+GET http://localhost:8888/service-notifications/default
+Accept: application/json
+
+###
+
+### API Gateway : Lister toutes les routes actives (dynamiques + statiques)
+GET {{baseUrl}}/actuator/gateway/routes
+Accept: application/json
+
+###
+
+### API Gateway : Routage dynamique par nom de service Eureka (/service-residents/...)
+GET {{baseUrl}}/service-residents/api/residents
+Accept: application/json
+
+###
+
+### Eureka Server : Consulter les instances enregistrées (Format JSON)
+GET http://localhost:8761/eureka/apps
+Accept: application/json
+
+###
+
+### Gateway Dynamic Demo : Vérifier découverte dynamique de service-demo (si lancé avec -Pdemo)
+GET {{baseUrl}}/service-demo/api/demo/hello
+Accept: application/json
+
+### ===================================================================
+### 📬 JALON V5 : NOTIFICATIONS ASYNCHRONES (RABBITMQ & MAILHOG)
+### ===================================================================
+
+### 5.1 [Jalon V5] Créer un ticket -> Émet l'événement IncidentCreatedEvent vers RabbitMQ
+POST {{baseUrl}}/api/tickets
+Content-Type: application/json
+Accept: application/json
+
+{
+  "apartmentId": 1,
+  "description": "Panne d'ascenseur au 2ème étage - Notification auto",
+  "priorite": "HAUTE"
+}
+
+###
+
+### 5.2 [Jalon V5] Consulter la dernière notification consommée par service-notifications (et vérifier MailHog : http://localhost:8025)
+GET {{baseUrl}}/api/notifications/last
+Accept: application/json
+
+### ===================================================================
+### 🛡️ JALON V6 : RÉSILIENCE, CONTRÔLE D'ERREURS, RATE LIMIT & IDEMPOTENCE
+### ===================================================================
+
+### 6.1 [Jalon V6 - Idempotence Ticket] 1ère création avec Idempotency-Key -> 201 Created
+POST {{baseUrl}}/api/tickets
+Content-Type: application/json
+Idempotency-Key: idemp-ticket-abc-123
+
+{
+  "apartmentId": 1,
+  "description": "Porte du hall bloquée",
+  "priorite": "MOYENNE"
+}
+
+###
+
+### 6.2 [Jalon V6 - Idempotence Ticket Rejouée] Même requête avec la MÊME clé -> 409 Conflict (aucun doublon)
+POST {{baseUrl}}/api/tickets
+Content-Type: application/json
+Idempotency-Key: idemp-ticket-abc-123
+
+{
+  "apartmentId": 1,
+  "description": "Porte du hall bloquée",
+  "priorite": "MOYENNE"
+}
+
+###
+
+### 6.3 [Jalon V6 - Idempotence Paiement] 1er enregistrement avec Idempotency-Key -> 201 Created
+POST {{baseUrl}}/api/payments
+Content-Type: application/json
+Idempotency-Key: idemp-pay-999
+
+{
+  "chargeId": 1,
+  "date": "2026-11-24",
+  "montant": 100.00,
+  "moyen": "VIREMENT"
+}
+
+###
+
+### 6.4 [Jalon V6 - Idempotence Paiement Rejouée] Même paiement avec la MÊME clé -> 409 Conflict
+POST {{baseUrl}}/api/payments
+Content-Type: application/json
+Idempotency-Key: idemp-pay-999
+
+{
+  "chargeId": 1,
+  "date": "2026-11-24",
+  "montant": 100.00,
+  "moyen": "VIREMENT"
+}
+
+###
+
+### 6.5 [Jalon V6 - Resilience4j / Circuit Breaker & Retry]
+# Coupez service-residents dans IntelliJ puis lancez cette requête : le Fallback renvoie 200 OK dégradé
+GET {{baseUrl}}/api/tickets/1/detail
+Accept: application/json
+
+###
+
+### 6.6 [Jalon V6 - Validation DTO & GlobalExceptionHandler] -> 400 Bad Request format uniforme
+POST {{baseUrl}}/api/residents
+Content-Type: application/json
+
+{
+  "nom": "",
+  "email": "email-invalide",
+  "telephone": "",
+  "role": null
+}
+
+###
+
+### 6.7 [Jalon V6 - Rate Limiting API Gateway]
+# Vérifiez les en-têtes de réponse X-RateLimit-Limit et X-RateLimit-Remaining.
+# Envoyez > 20 fois rapidement (en < 15s) pour déclencher 429 Too Many Requests !
+GET {{baseUrl}}/api/residents
+Accept: application/json
+

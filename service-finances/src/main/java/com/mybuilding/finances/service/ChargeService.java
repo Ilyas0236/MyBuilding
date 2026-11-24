@@ -8,6 +8,7 @@ import java.util.List;
 
 public interface ChargeService {
     ChargeResponseDTO create(ChargeRequestDTO dto);
+    ChargeResponseDTO create(ChargeRequestDTO dto, String idempotencyKey);
     List<ChargeResponseDTO> getAll();
     ChargeResponseDTO getById(Long id);
     List<ChargeResponseDTO> getByApartmentId(Long apartmentId);

@@ -2,6 +2,7 @@ package com.mybuilding.residents.service.impl;
 
 import com.mybuilding.residents.dto.ApartmentRequestDTO;
 import com.mybuilding.residents.dto.ApartmentResponseDTO;
+import com.mybuilding.residents.idempotency.IdempotencyService;
 import com.mybuilding.residents.mapper.ResidentMapper;
 import com.mybuilding.residents.model.Apartment;
 import com.mybuilding.residents.repository.ApartmentRepository;
@@ -21,15 +22,26 @@ public class ApartmentServiceImpl implements ApartmentService {
     private final ApartmentRepository apartmentRepository;
     private final ResidentRepository residentRepository;
     private final ResidentMapper residentMapper;
+    private final IdempotencyService idempotencyService;
 
-    public ApartmentServiceImpl(ApartmentRepository apartmentRepository, ResidentRepository residentRepository, ResidentMapper residentMapper) {
+    public ApartmentServiceImpl(ApartmentRepository apartmentRepository,
+                                ResidentRepository residentRepository,
+                                ResidentMapper residentMapper,
+                                IdempotencyService idempotencyService) {
         this.apartmentRepository = apartmentRepository;
         this.residentRepository = residentRepository;
         this.residentMapper = residentMapper;
+        this.idempotencyService = idempotencyService;
     }
 
     @Override
     public ApartmentResponseDTO create(ApartmentRequestDTO dto) {
+        return create(dto, null);
+    }
+
+    @Override
+    public ApartmentResponseDTO create(ApartmentRequestDTO dto, String idempotencyKey) {
+        idempotencyService.ensureNotProcessed(idempotencyKey);
         if (apartmentRepository.existsByNumero(dto.getNumero())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Un appartement avec ce numéro existe déjà : " + dto.getNumero());
         }
@@ -38,6 +50,7 @@ public class ApartmentServiceImpl implements ApartmentService {
         }
         Apartment apartment = residentMapper.toEntity(dto);
         Apartment saved = apartmentRepository.save(apartment);
+        idempotencyService.register(idempotencyKey, "APARTMENT");
         return residentMapper.toResponseDTO(saved);
     }
 

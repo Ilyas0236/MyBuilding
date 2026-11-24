@@ -2,6 +2,7 @@ package com.mybuilding.residents.service.impl;
 
 import com.mybuilding.residents.dto.ResidentRequestDTO;
 import com.mybuilding.residents.dto.ResidentResponseDTO;
+import com.mybuilding.residents.idempotency.IdempotencyService;
 import com.mybuilding.residents.mapper.ResidentMapper;
 import com.mybuilding.residents.model.Resident;
 import com.mybuilding.residents.repository.ResidentRepository;
@@ -20,19 +21,30 @@ public class ResidentServiceImpl implements ResidentService {
 
     private final ResidentRepository residentRepository;
     private final ResidentMapper residentMapper;
+    private final IdempotencyService idempotencyService;
 
-    public ResidentServiceImpl(ResidentRepository residentRepository, ResidentMapper residentMapper) {
+    public ResidentServiceImpl(ResidentRepository residentRepository,
+                               ResidentMapper residentMapper,
+                               IdempotencyService idempotencyService) {
         this.residentRepository = residentRepository;
         this.residentMapper = residentMapper;
+        this.idempotencyService = idempotencyService;
     }
 
     @Override
     public ResidentResponseDTO create(ResidentRequestDTO dto) {
+        return create(dto, null);
+    }
+
+    @Override
+    public ResidentResponseDTO create(ResidentRequestDTO dto, String idempotencyKey) {
+        idempotencyService.ensureNotProcessed(idempotencyKey);
         if (residentRepository.existsByEmail(dto.getEmail())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Un résident avec cet email existe déjà : " + dto.getEmail());
         }
         Resident entity = residentMapper.toEntity(dto);
         Resident saved = residentRepository.save(entity);
+        idempotencyService.register(idempotencyKey, "RESIDENT");
         return residentMapper.toResponseDTO(saved);
     }
 

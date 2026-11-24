@@ -37,8 +37,10 @@ public class ApartmentController {
     }
 
     @PostMapping
-    public ResponseEntity<ApartmentResponseDTO> create(@Valid @RequestBody ApartmentRequestDTO dto) {
-        ApartmentResponseDTO created = apartmentService.create(dto);
+    public ResponseEntity<ApartmentResponseDTO> create(
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @Valid @RequestBody ApartmentRequestDTO dto) {
+        ApartmentResponseDTO created = apartmentService.create(dto, idempotencyKey);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 

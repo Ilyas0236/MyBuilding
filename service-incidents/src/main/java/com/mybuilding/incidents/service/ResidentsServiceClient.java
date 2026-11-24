@@ -8,12 +8,13 @@ import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class ResidentsServiceClient {
+
+    public static final String UNAVAILABLE_APARTMENT = "INDISPONIBLE (CircuitBreaker)";
+    public static final String UNAVAILABLE_EMAIL = "indisponible@mybuilding.local";
 
     private static final Logger log = LoggerFactory.getLogger(ResidentsServiceClient.class);
     private final ResidentsFeignClient residentsFeignClient;
@@ -34,27 +35,41 @@ public class ResidentsServiceClient {
         return residentsFeignClient.getResidentById(id);
     }
 
+    public static boolean isFallbackApartment(ApartmentDTO apartment) {
+        return apartment == null || UNAVAILABLE_APARTMENT.equals(apartment.getNumero());
+    }
+
+    public static boolean isFallbackResident(ResidentDTO resident) {
+        return resident == null || UNAVAILABLE_EMAIL.equals(resident.getEmail());
+    }
+
     public ApartmentDTO fallbackGetApartment(Long id, Throwable throwable) {
-        if (throwable instanceof FeignException.NotFound || (throwable.getCause() instanceof FeignException.NotFound)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "L'appartement spécifié n'existe pas : " + id);
-        }
-        log.warn("Fallback de résilience déclenché pour getApartmentById({}): {}", id, throwable.getMessage());
+        rethrowIfNotFound(throwable);
+        log.warn("Fallback déclenché pour getApartmentById({}): {}", id, throwable.getMessage());
         ApartmentDTO fallback = new ApartmentDTO();
         fallback.setId(id);
-        fallback.setNumero("INDISPONIBLE (CircuitBreaker)");
+        fallback.setNumero(UNAVAILABLE_APARTMENT);
         fallback.setEtage(0);
         return fallback;
     }
 
     public ResidentDTO fallbackGetResident(Long id, Throwable throwable) {
-        if (throwable instanceof FeignException.NotFound || (throwable.getCause() instanceof FeignException.NotFound)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Le résident spécifié n'existe pas : " + id);
-        }
-        log.warn("Fallback de résilience déclenché pour getResidentById({}): {}", id, throwable.getMessage());
+        rethrowIfNotFound(throwable);
+        log.warn("Fallback déclenché pour getResidentById({}): {}", id, throwable.getMessage());
         ResidentDTO fallback = new ResidentDTO();
         fallback.setId(id);
         fallback.setNom("Service Résidents Indisponible");
-        fallback.setEmail("indisponible@mybuilding.local");
+        fallback.setEmail(UNAVAILABLE_EMAIL);
         return fallback;
+    }
+
+    private static void rethrowIfNotFound(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof FeignException.NotFound notFound) {
+                throw notFound;
+            }
+            current = current.getCause();
+        }
     }
 }

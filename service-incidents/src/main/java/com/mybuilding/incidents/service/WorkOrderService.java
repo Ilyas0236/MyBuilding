@@ -10,6 +10,7 @@ import java.util.List;
 
 public interface WorkOrderService {
     WorkOrderResponseDTO create(WorkOrderRequestDTO dto);
+    WorkOrderResponseDTO create(WorkOrderRequestDTO dto, String idempotencyKey);
     List<WorkOrderResponseDTO> getAll();
     WorkOrderResponseDTO getById(Long id);
     List<WorkOrderResponseDTO> getByTicketId(Long ticketId);
