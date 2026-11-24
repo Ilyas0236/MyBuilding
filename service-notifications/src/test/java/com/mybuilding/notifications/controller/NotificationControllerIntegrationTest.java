@@ -53,7 +53,9 @@ class NotificationControllerIntegrationTest {
                 Instant.now()
         ));
 
-        verify(mailSender).send(any(SimpleMailMessage.class));
+        org.mockito.ArgumentCaptor<SimpleMailMessage> captor = org.mockito.ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender).send(captor.capture());
+        org.junit.jupiter.api.Assertions.assertEquals("noreply@mybuilding.local", captor.getValue().getFrom());
 
         mockMvc.perform(get("/api/notifications/last"))
                 .andExpect(status().isOk())

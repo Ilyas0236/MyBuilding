@@ -277,8 +277,10 @@ Le dossier centralisé versionné `config-repo/` contient la configuration de to
 * `config-repo/application.properties` : Propriétés partagées (URL Eureka, Actuator).
 * `config-repo/service-residents.properties` : Port 8081, BDD H2 `residentsdb`, JPA Hibernate.
 * `config-repo/service-incidents.properties` : Port 8082, BDD H2 `incidentsdb`, JPA Hibernate.
-* `config-repo/service-finances.properties` : Port 8083, BDD H2 `financesdb`, JPA Hibernate.
-* `config-repo/api-gateway.properties` : Port 8080, Discovery Locator et Actuator Gateway.
+* `config-repo/service-finances.properties` : Port 8083, BDD H2 `financesdb`, JPA Hibernate, Resilience4j.
+* `config-repo/service-notifications.properties` : Port 8084, RabbitMQ, SMTP MailHog, notifications.
+* `config-repo/api-gateway.properties` : Port 8080, Discovery Locator, routes `/api/**`, RateLimiter et Actuator Gateway.
+* `config-repo/api-gateway-statique.properties` : Profil `statique` sans Discovery Locator avec routes explicites `lb://`.
 
 ### Configuration locale minimale & Fail-Fast :
 Chaque service client n'a plus qu'un fichier local minimal `src/main/resources/application.properties` :

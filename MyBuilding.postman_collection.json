@@ -2000,6 +2000,16 @@
                     "name": "7.2 - Vérifier la consommation et l'envoi du mail",
                     "event": [
                         {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "// Laisse 500ms à RabbitMQ + MailHog pour consommer l'événement en Runner",
+                                    "setTimeout(function () {}, 500);"
+                                ]
+                            }
+                        },
+                        {
                             "listen": "test",
                             "script": {
                                 "type": "text/javascript",
