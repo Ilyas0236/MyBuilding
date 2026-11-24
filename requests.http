@@ -142,3 +142,74 @@ Accept: application/json
 ### Eureka Server : Consulter les instances enregistrées (Format JSON)
 GET http://localhost:8761/eureka/apps
 Accept: application/json
+
+### ===================================================================
+### 📬 JALON V5 : NOTIFICATIONS ASYNCHRONES (RABBITMQ)
+### ===================================================================
+
+### 5.1 [Jalon V5] Créer un ticket -> Émet l'événement IncidentCreatedEvent vers RabbitMQ
+POST {{baseUrl}}/api/tickets
+Content-Type: application/json
+Accept: application/json
+
+{
+  "apartmentId": 1,
+  "description": "Panne d'ascenseur au 2ème étage - Notification auto",
+  "priorite": "HAUTE"
+}
+
+###
+
+### 5.2 [Jalon V5] Consulter les notifications reçues et consommées par service-notifications
+GET {{baseUrl}}/api/notifications
+Accept: application/json
+
+### ===================================================================
+### 🛡️ JALON V6 : RÉSILIENCE (CIRCUIT BREAKER, RETRY) & IDEMPOTENCE
+### ===================================================================
+
+### 6.1 [Jalon V6 - Idempotence] Création Ticket avec Idempotency-Key
+POST {{baseUrl}}/api/tickets
+Content-Type: application/json
+Idempotency-Key: idemp-ticket-abc-123
+
+{
+  "apartmentId": 1,
+  "description": "Porte du hall bloquée",
+  "priorite": "MOYENNE"
+}
+
+###
+
+### 6.2 [Jalon V6 - Idempotence Rejouée] Même requête avec la MÊME clé (Doit renvoyer le même résultat sans dupliquer en DB)
+POST {{baseUrl}}/api/tickets
+Content-Type: application/json
+Idempotency-Key: idemp-ticket-abc-123
+
+{
+  "apartmentId": 1,
+  "description": "Porte du hall bloquée",
+  "priorite": "MOYENNE"
+}
+
+###
+
+### 6.3 [Jalon V6 - Idempotence Paiement] Enregistrement d'un paiement avec Idempotency-Key
+POST {{baseUrl}}/api/payments
+Content-Type: application/json
+Idempotency-Key: idemp-pay-999
+
+{
+  "chargeId": 1,
+  "residentId": 1,
+  "amount": 250.0,
+  "moyen": "VIREMENT"
+}
+
+###
+
+### 6.4 [Jalon V6 - Resilience4j / Circuit Breaker & Retry]
+# Appel Feign enrichi (Teste le Circuit Breaker et Timeout configurés sur service-residents)
+GET {{baseUrl}}/api/tickets/1/detail
+Accept: application/json
+
