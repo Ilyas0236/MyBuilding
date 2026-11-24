@@ -5,7 +5,7 @@ import com.mybuilding.incidents.dto.WorkOrderResponseDTO;
 import com.mybuilding.incidents.dto.WorkOrderResponseFullDTO;
 import com.mybuilding.incidents.feignClient.ApartmentDTO;
 import com.mybuilding.incidents.feignClient.ResidentDTO;
-import com.mybuilding.incidents.feignClient.ResidentsFeignClient;
+import com.mybuilding.incidents.idempotency.IdempotencyService;
 import com.mybuilding.incidents.mapper.IncidentMapper;
 import com.mybuilding.incidents.model.StatutTicket;
 import com.mybuilding.incidents.model.StatutWorkOrder;
@@ -13,7 +13,10 @@ import com.mybuilding.incidents.model.Ticket;
 import com.mybuilding.incidents.model.WorkOrder;
 import com.mybuilding.incidents.repository.TicketRepository;
 import com.mybuilding.incidents.repository.WorkOrderRepository;
+import com.mybuilding.incidents.service.ResidentsServiceClient;
 import com.mybuilding.incidents.service.WorkOrderService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,23 +29,35 @@ import java.util.List;
 @Transactional
 public class WorkOrderServiceImpl implements WorkOrderService {
 
+    private static final Logger log = LoggerFactory.getLogger(WorkOrderServiceImpl.class);
+
     private final WorkOrderRepository workOrderRepository;
     private final TicketRepository ticketRepository;
     private final IncidentMapper incidentMapper;
-    private final ResidentsFeignClient residentsFeignClient;
+    private final ResidentsServiceClient residentsServiceClient;
+    private final IdempotencyService idempotencyService;
 
     public WorkOrderServiceImpl(WorkOrderRepository workOrderRepository,
                                 TicketRepository ticketRepository,
                                 IncidentMapper incidentMapper,
-                                ResidentsFeignClient residentsFeignClient) {
+                                ResidentsServiceClient residentsServiceClient,
+                                IdempotencyService idempotencyService) {
         this.workOrderRepository = workOrderRepository;
         this.ticketRepository = ticketRepository;
         this.incidentMapper = incidentMapper;
-        this.residentsFeignClient = residentsFeignClient;
+        this.residentsServiceClient = residentsServiceClient;
+        this.idempotencyService = idempotencyService;
     }
 
     @Override
     public WorkOrderResponseDTO create(WorkOrderRequestDTO dto) {
+        return create(dto, null);
+    }
+
+    @Override
+    public WorkOrderResponseDTO create(WorkOrderRequestDTO dto, String idempotencyKey) {
+        idempotencyService.ensureNotProcessed(idempotencyKey);
+
         Ticket ticket = ticketRepository.findById(dto.getTicketId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ticket introuvable : id=" + dto.getTicketId() + " (RM-WO-01)"));
 
@@ -55,6 +70,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
 
         WorkOrder wo = incidentMapper.toEntity(dto);
         WorkOrder saved = workOrderRepository.save(wo);
+        idempotencyService.register(idempotencyKey, "WORK_ORDER");
         return incidentMapper.toResponseDTO(saved);
     }
 
@@ -153,18 +169,18 @@ public class WorkOrderServiceImpl implements WorkOrderService {
             fullDto.setTicketStatut(ticket.getStatut() != null ? ticket.getStatut().name() : null);
             fullDto.setApartmentId(ticket.getApartmentId());
 
-            // 2. Récupération distante de l'Appartement via OpenFeign
+            // 2. Récupération distante de l'Appartement via OpenFeign résilient
             if (ticket.getApartmentId() != null) {
                 try {
-                    ApartmentDTO apartment = residentsFeignClient.getApartmentById(ticket.getApartmentId());
+                    ApartmentDTO apartment = residentsServiceClient.getApartmentById(ticket.getApartmentId());
                     if (apartment != null) {
                         fullDto.setApartmentNumero(apartment.getNumero());
                         fullDto.setEtage(apartment.getEtage());
                         fullDto.setResidentId(apartment.getResidentId());
 
-                        // 3. Récupération distante du Résident via OpenFeign
+                        // 3. Récupération distante du Résident via OpenFeign résilient
                         if (apartment.getResidentId() != null) {
-                            ResidentDTO resident = residentsFeignClient.getResidentById(apartment.getResidentId());
+                            ResidentDTO resident = residentsServiceClient.getResidentById(apartment.getResidentId());
                             if (resident != null) {
                                 fullDto.setResidentNom(resident.getNom());
                                 fullDto.setResidentEmail(resident.getEmail());
@@ -172,7 +188,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
                         }
                     }
                 } catch (Exception e) {
-                    // Tolérance si le service distant est temporairement dégradé lors de la lecture
+                    log.warn("Dégradation lors de l'enrichissement du WorkOrder #{}: {}", id, e.getMessage());
                 }
             }
         });

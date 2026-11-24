@@ -3,12 +3,8 @@ package com.mybuilding.incidents.controller;
 import com.mybuilding.incidents.dto.TicketRequestDTO;
 import com.mybuilding.incidents.dto.TicketResponseDTO;
 import com.mybuilding.incidents.dto.TicketResponseFullDTO;
-import com.mybuilding.incidents.model.PrioriteTicket;
 import com.mybuilding.incidents.model.StatutTicket;
-import com.mybuilding.incidents.model.Ticket;
-import com.mybuilding.incidents.repository.TicketRepository;
 import com.mybuilding.incidents.service.TicketService;
-import jakarta.annotation.PostConstruct;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,19 +18,9 @@ import java.util.Map;
 public class TicketController {
 
     private final TicketService ticketService;
-    private final TicketRepository ticketRepository;
 
-    public TicketController(TicketService ticketService, TicketRepository ticketRepository) {
+    public TicketController(TicketService ticketService) {
         this.ticketService = ticketService;
-        this.ticketRepository = ticketRepository;
-    }
-
-    @PostConstruct
-    public void initData() {
-        if (ticketRepository.count() == 0) {
-            ticketRepository.save(new Ticket(1L, "Fuite d'eau au robinet de la cuisine", PrioriteTicket.HAUTE));
-            ticketRepository.save(new Ticket(2L, "Panne interphone entrée principale", PrioriteTicket.MOYENNE));
-        }
     }
 
     @GetMapping
@@ -58,8 +44,10 @@ public class TicketController {
     }
 
     @PostMapping
-    public ResponseEntity<TicketResponseDTO> create(@Valid @RequestBody TicketRequestDTO dto) {
-        TicketResponseDTO created = ticketService.create(dto);
+    public ResponseEntity<TicketResponseDTO> create(
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @Valid @RequestBody TicketRequestDTO dto) {
+        TicketResponseDTO created = ticketService.create(dto, idempotencyKey);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 

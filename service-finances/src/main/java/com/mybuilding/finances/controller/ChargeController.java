@@ -3,17 +3,12 @@ package com.mybuilding.finances.controller;
 import com.mybuilding.finances.dto.ChargeRequestDTO;
 import com.mybuilding.finances.dto.ChargeResponseDTO;
 import com.mybuilding.finances.dto.ChargeResponseFullDTO;
-import com.mybuilding.finances.model.Charge;
-import com.mybuilding.finances.model.StatutCharge;
-import com.mybuilding.finances.repository.ChargeRepository;
 import com.mybuilding.finances.service.ChargeService;
-import jakarta.annotation.PostConstruct;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
@@ -21,34 +16,9 @@ import java.util.List;
 public class ChargeController {
 
     private final ChargeService chargeService;
-    private final ChargeRepository chargeRepository;
 
-    public ChargeController(ChargeService chargeService, ChargeRepository chargeRepository) {
+    public ChargeController(ChargeService chargeService) {
         this.chargeService = chargeService;
-        this.chargeRepository = chargeRepository;
-    }
-
-    @PostConstruct
-    public void initData() {
-        // Initialisation directe via le repository pour éviter les appels Feign au démarrage
-        // (service-residents peut ne pas encore être UP lors du démarrage)
-        if (chargeRepository.count() == 0) {
-            Charge c1 = new Charge();
-            c1.setApartmentId(1L);
-            c1.setPeriode("2026-11");
-            c1.setMontant(new BigDecimal("1500.00"));
-            c1.setMontantPaye(BigDecimal.ZERO);
-            c1.setStatut(StatutCharge.EMISE);
-            chargeRepository.save(c1);
-
-            Charge c2 = new Charge();
-            c2.setApartmentId(2L);
-            c2.setPeriode("2026-11");
-            c2.setMontant(new BigDecimal("1200.00"));
-            c2.setMontantPaye(BigDecimal.ZERO);
-            c2.setStatut(StatutCharge.EMISE);
-            chargeRepository.save(c2);
-        }
     }
 
     @GetMapping
@@ -77,8 +47,10 @@ public class ChargeController {
     }
 
     @PostMapping
-    public ResponseEntity<ChargeResponseDTO> create(@Valid @RequestBody ChargeRequestDTO dto) {
-        ChargeResponseDTO created = chargeService.create(dto);
+    public ResponseEntity<ChargeResponseDTO> create(
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @Valid @RequestBody ChargeRequestDTO dto) {
+        ChargeResponseDTO created = chargeService.create(dto, idempotencyKey);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 

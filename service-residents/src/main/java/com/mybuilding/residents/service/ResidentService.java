@@ -8,6 +8,7 @@ import java.util.List;
 
 public interface ResidentService {
     ResidentResponseDTO create(ResidentRequestDTO dto);
+    ResidentResponseDTO create(ResidentRequestDTO dto, String idempotencyKey);
     List<ResidentResponseDTO> getAll();
     ResidentResponseDTO getById(Long id);
     ResidentResponseDTO update(Long id, ResidentRequestDTO dto);

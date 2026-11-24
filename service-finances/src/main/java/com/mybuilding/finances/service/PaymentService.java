@@ -7,6 +7,7 @@ import java.util.List;
 
 public interface PaymentService {
     PaymentResponseDTO recordPayment(PaymentRequestDTO dto);
+    PaymentResponseDTO recordPayment(PaymentRequestDTO dto, String idempotencyKey);
     List<PaymentResponseDTO> getAll();
     PaymentResponseDTO getById(Long id);
     List<PaymentResponseDTO> getByChargeId(Long chargeId);

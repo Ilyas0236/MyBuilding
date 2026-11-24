@@ -7,6 +7,7 @@ import java.util.List;
 
 public interface ApartmentService {
     ApartmentResponseDTO create(ApartmentRequestDTO dto);
+    ApartmentResponseDTO create(ApartmentRequestDTO dto, String idempotencyKey);
     List<ApartmentResponseDTO> getAll();
     ApartmentResponseDTO getById(Long id);
     ApartmentResponseDTO update(Long id, ApartmentRequestDTO dto);

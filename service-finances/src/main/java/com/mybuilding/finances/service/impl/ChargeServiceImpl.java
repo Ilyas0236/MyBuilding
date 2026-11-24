@@ -5,12 +5,15 @@ import com.mybuilding.finances.dto.ChargeResponseDTO;
 import com.mybuilding.finances.dto.ChargeResponseFullDTO;
 import com.mybuilding.finances.feignClient.ApartmentDTO;
 import com.mybuilding.finances.feignClient.ResidentDTO;
+import com.mybuilding.finances.idempotency.IdempotencyService;
 import com.mybuilding.finances.service.ResidentsServiceClient;
 import com.mybuilding.finances.mapper.FinanceMapper;
 import com.mybuilding.finances.model.Charge;
 import com.mybuilding.finances.model.StatutCharge;
 import com.mybuilding.finances.repository.ChargeRepository;
 import com.mybuilding.finances.service.ChargeService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,22 +25,38 @@ import java.util.List;
 @Transactional
 public class ChargeServiceImpl implements ChargeService {
 
+    private static final Logger log = LoggerFactory.getLogger(ChargeServiceImpl.class);
+
     private final ChargeRepository chargeRepository;
     private final FinanceMapper financeMapper;
     private final ResidentsServiceClient residentsServiceClient;
+    private final IdempotencyService idempotencyService;
 
     public ChargeServiceImpl(ChargeRepository chargeRepository,
                              FinanceMapper financeMapper,
-                             ResidentsServiceClient residentsServiceClient) {
+                             ResidentsServiceClient residentsServiceClient,
+                             IdempotencyService idempotencyService) {
         this.chargeRepository = chargeRepository;
         this.financeMapper = financeMapper;
         this.residentsServiceClient = residentsServiceClient;
+        this.idempotencyService = idempotencyService;
     }
 
     @Override
     public ChargeResponseDTO create(ChargeRequestDTO dto) {
-        // --- Jalon V4 & V6 : Validation distante avec Résilience (CircuitBreaker / Retry / Timeout) ---
-        residentsServiceClient.getApartmentById(dto.getApartmentId());
+        return create(dto, null);
+    }
+
+    @Override
+    public ChargeResponseDTO create(ChargeRequestDTO dto, String idempotencyKey) {
+        idempotencyService.ensureNotProcessed(idempotencyKey);
+
+        // --- Jalon V4 & V6 : Validation distante avec Résilience (404 propagé, fallback => 503) ---
+        ApartmentDTO apartment = residentsServiceClient.getApartmentById(dto.getApartmentId());
+        if (ResidentsServiceClient.isFallbackApartment(apartment)) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Service Résidents temporairement indisponible : validation de l'appartement impossible");
+        }
 
         if (chargeRepository.existsByApartmentIdAndPeriode(dto.getApartmentId(), dto.getPeriode())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
@@ -46,6 +65,7 @@ public class ChargeServiceImpl implements ChargeService {
 
         Charge charge = financeMapper.toEntity(dto);
         Charge saved = chargeRepository.save(charge);
+        idempotencyService.register(idempotencyKey, "CHARGE");
         return financeMapper.toResponseDTO(saved);
     }
 
@@ -122,7 +142,7 @@ public class ChargeServiceImpl implements ChargeService {
                 }
             }
         } catch (Exception e) {
-            // Tolérance si dégradation
+            log.warn("Dégradation lors de l'enrichissement de la charge #{}: {}", id, e.getMessage());
         }
 
         return fullDto;

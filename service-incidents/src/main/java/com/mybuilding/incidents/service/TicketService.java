@@ -9,6 +9,7 @@ import java.util.List;
 
 public interface TicketService {
     TicketResponseDTO create(TicketRequestDTO dto);
+    TicketResponseDTO create(TicketRequestDTO dto, String idempotencyKey);
     List<TicketResponseDTO> getAll();
     TicketResponseDTO getById(Long id);
     TicketResponseFullDTO getTicketFullById(Long id);

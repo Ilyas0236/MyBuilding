@@ -4,19 +4,13 @@ import com.mybuilding.incidents.dto.WorkOrderRequestDTO;
 import com.mybuilding.incidents.dto.WorkOrderResponseDTO;
 import com.mybuilding.incidents.dto.WorkOrderResponseFullDTO;
 import com.mybuilding.incidents.model.StatutWorkOrder;
-import com.mybuilding.incidents.model.Ticket;
-import com.mybuilding.incidents.model.WorkOrder;
-import com.mybuilding.incidents.repository.TicketRepository;
-import com.mybuilding.incidents.repository.WorkOrderRepository;
 import com.mybuilding.incidents.service.WorkOrderService;
-import jakarta.annotation.PostConstruct;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -25,30 +19,9 @@ import java.util.Map;
 public class WorkOrderController {
 
     private final WorkOrderService workOrderService;
-    private final WorkOrderRepository workOrderRepository;
-    private final TicketRepository ticketRepository;
 
-    public WorkOrderController(WorkOrderService workOrderService,
-                               WorkOrderRepository workOrderRepository,
-                               TicketRepository ticketRepository) {
+    public WorkOrderController(WorkOrderService workOrderService) {
         this.workOrderService = workOrderService;
-        this.workOrderRepository = workOrderRepository;
-        this.ticketRepository = ticketRepository;
-    }
-
-    @PostConstruct
-    public void initData() {
-        // Initialisation directe via le repository pour éviter les appels Feign au démarrage
-        if (workOrderRepository.count() == 0) {
-            ticketRepository.findById(1L).ifPresent(ticket -> {
-                WorkOrder wo = new WorkOrder();
-                wo.setTicketId(1L);
-                wo.setArtisan("Plomberie Express");
-                wo.setDateIntervention(LocalDate.now().plusDays(1));
-                wo.setCout(new BigDecimal("450.00"));
-                workOrderRepository.save(wo);
-            });
-        }
     }
 
     @GetMapping
@@ -72,8 +45,10 @@ public class WorkOrderController {
     }
 
     @PostMapping
-    public ResponseEntity<WorkOrderResponseDTO> create(@Valid @RequestBody WorkOrderRequestDTO dto) {
-        WorkOrderResponseDTO created = workOrderService.create(dto);
+    public ResponseEntity<WorkOrderResponseDTO> create(
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @Valid @RequestBody WorkOrderRequestDTO dto) {
+        WorkOrderResponseDTO created = workOrderService.create(dto, idempotencyKey);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 

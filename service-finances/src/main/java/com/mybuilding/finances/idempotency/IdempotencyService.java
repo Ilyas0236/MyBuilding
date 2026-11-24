@@ -15,7 +15,8 @@ public class IdempotencyService {
         this.repository = repository;
     }
 
-    public void validateAndRegister(String key, String resourceType) {
+    @Transactional(readOnly = true)
+    public void ensureNotProcessed(String key) {
         if (key == null || key.trim().isEmpty()) {
             return;
         }
@@ -23,6 +24,17 @@ public class IdempotencyService {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Opération financière déjà traitée avec la clé d'idempotence : " + key);
         }
+    }
+
+    public void register(String key, String resourceType) {
+        if (key == null || key.trim().isEmpty()) {
+            return;
+        }
         repository.save(new IdempotencyKey(key, resourceType, "PROCESSED"));
+    }
+
+    public void validateAndRegister(String key, String resourceType) {
+        ensureNotProcessed(key);
+        register(key, resourceType);
     }
 }
