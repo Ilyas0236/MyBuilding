@@ -52,8 +52,12 @@ public class TicketController {
     }
 
     @PatchMapping("/{id}/status")
-    public ResponseEntity<TicketResponseDTO> updateStatus(@PathVariable("id") Long id, @RequestBody Map<String, String> payload) {
-        StatutTicket statut = StatutTicket.valueOf(payload.get("statut"));
+    public ResponseEntity<TicketResponseDTO> updateStatus(@PathVariable("id") Long id, @RequestBody(required = false) Map<String, String> payload) {
+        String rawStatut = payload != null ? payload.get("statut") : null;
+        if (rawStatut == null || rawStatut.isBlank()) {
+            throw new IllegalArgumentException("Le champ 'statut' est obligatoire");
+        }
+        StatutTicket statut = StatutTicket.valueOf(rawStatut);
         return ResponseEntity.ok(ticketService.updateStatus(id, statut));
     }
 

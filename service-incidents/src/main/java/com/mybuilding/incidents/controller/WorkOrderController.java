@@ -53,8 +53,12 @@ public class WorkOrderController {
     }
 
     @PatchMapping("/{id}/status")
-    public ResponseEntity<WorkOrderResponseDTO> updateStatus(@PathVariable("id") Long id, @RequestBody Map<String, String> payload) {
-        StatutWorkOrder statut = StatutWorkOrder.valueOf(payload.get("statut"));
+    public ResponseEntity<WorkOrderResponseDTO> updateStatus(@PathVariable("id") Long id, @RequestBody(required = false) Map<String, String> payload) {
+        String rawStatut = payload != null ? payload.get("statut") : null;
+        if (rawStatut == null || rawStatut.isBlank()) {
+            throw new IllegalArgumentException("Le champ 'statut' est obligatoire");
+        }
+        StatutWorkOrder statut = StatutWorkOrder.valueOf(rawStatut);
         return ResponseEntity.ok(workOrderService.updateStatus(id, statut));
     }
 

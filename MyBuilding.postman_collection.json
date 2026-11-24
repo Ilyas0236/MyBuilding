@@ -91,14 +91,8 @@
                             "listen": "test",
                             "script": {
                                 "exec": [
-                                    "pm.test(\"Status code is 201 Created\", function () {",
-                                    "    pm.response.to.have.status(201);",
-                                    "});",
-                                    "pm.test(\"ID gÃ©nÃ©rÃ© et solde initial Ã  0\", function () {",
-                                    "    var json = pm.response.json();",
-                                    "    pm.expect(json.id).to.be.a('number');",
-                                    "    pm.expect(json.solde).to.eql(0);",
-                                    "});"
+                                    "pm.test(\"Status code is 201 Created\", function () { pm.response.to.have.status(201); });",
+                                    "pm.test(\"ID généré et solde initial à 0\", function () { var json = pm.response.json(); pm.expect(json.id).to.be.a(\"number\"); pm.expect(json.solde).to.eql(0); pm.collectionVariables.set(\"createdResidentId\", json.id); });"
                                 ],
                                 "type": "text/javascript"
                             }
@@ -377,6 +371,74 @@
                             ]
                         }
                     }
+                },
+                {
+                    "name": "1.11 - [Valide] Modifier le résident créé (PUT)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test(\"Status code is 200 OK\", function () { pm.response.to.have.status(200); });",
+                                    "pm.test(\"Téléphone mis à jour\", function () { pm.expect(pm.response.json().telephone).to.eql(\"+212699887766\"); });"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"nom\": \"Karim Idrissi Modifié\",\n  \"email\": \"karim.idrissi@mybuilding.ma\",\n  \"telephone\": \"+212699887766\",\n  \"role\": \"PROPRIETAIRE\"\n}"
+                        },
+                        "url": {
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "raw": "{{baseUrl}}/api/residents/{{createdResidentId}}",
+                            "path": [
+                                "api",
+                                "residents",
+                                "{{createdResidentId}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "1.12 - [Valide] Supprimer le résident de test (DELETE)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test(\"Status code is 204 No Content\", function () { pm.response.to.have.status(204); });"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "raw": "{{baseUrl}}/api/residents/{{createdResidentId}}",
+                            "path": [
+                                "api",
+                                "residents",
+                                "{{createdResidentId}}"
+                            ]
+                        }
+                    }
                 }
             ]
         },
@@ -420,13 +482,8 @@
                             "listen": "test",
                             "script": {
                                 "exec": [
-                                    "pm.test(\"Status code is 201 Created\", function () {",
-                                    "    pm.response.to.have.status(201);",
-                                    "});",
-                                    "pm.test(\"Statut initial OUVERT\", function () {",
-                                    "    var json = pm.response.json();",
-                                    "    pm.expect(json.statut).to.eql(\"OUVERT\");",
-                                    "});"
+                                    "pm.test(\"Status code is 201 Created\", function () { pm.response.to.have.status(201); });",
+                                    "pm.test(\"Statut initial OUVERT\", function () { var json = pm.response.json(); pm.expect(json.statut).to.eql(\"OUVERT\"); pm.collectionVariables.set(\"v1TicketId\", json.id); });"
                                 ],
                                 "type": "text/javascript"
                             }
@@ -686,6 +743,35 @@
                             ]
                         }
                     }
+                },
+                {
+                    "name": "2.9 - [Valide] Supprimer le ticket créé en 2.2 (DELETE)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test(\"Status code is 204 No Content\", function () { pm.response.to.have.status(204); });"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "raw": "{{baseUrl}}/api/tickets/{{v1TicketId}}",
+                            "path": [
+                                "api",
+                                "tickets",
+                                "{{v1TicketId}}"
+                            ]
+                        }
+                    }
                 }
             ]
         },
@@ -729,13 +815,8 @@
                             "listen": "test",
                             "script": {
                                 "exec": [
-                                    "pm.test(\"Status code is 201 Created\", function () {",
-                                    "    pm.response.to.have.status(201);",
-                                    "});",
-                                    "pm.test(\"Statut initial EMISE\", function () {",
-                                    "    var json = pm.response.json();",
-                                    "    pm.expect(json.statut).to.eql(\"EMISE\");",
-                                    "});"
+                                    "pm.test(\"Status code is 201 Created\", function () { pm.response.to.have.status(201); });",
+                                    "pm.test(\"Statut initial EMISE\", function () { var json = pm.response.json(); pm.expect(json.statut).to.eql(\"EMISE\"); pm.collectionVariables.set(\"v1ChargeId\", json.id); });"
                                 ],
                                 "type": "text/javascript"
                             }
@@ -1055,6 +1136,35 @@
                                 "payments",
                                 "charge",
                                 "1"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "3.11 - [Valide] Supprimer la charge créée en 3.2 (DELETE)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test(\"Status code is 204 No Content\", function () { pm.response.to.have.status(204); });"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "raw": "{{baseUrl}}/api/charges/{{v1ChargeId}}",
+                            "path": [
+                                "api",
+                                "charges",
+                                "{{v1ChargeId}}"
                             ]
                         }
                     }
