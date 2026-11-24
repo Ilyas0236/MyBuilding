@@ -1245,6 +1245,37 @@
                             ]
                         }
                     }
+                },
+                {
+                    "name": "4.6 - Configuration de api-gateway (profil statique)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test(\"Status code is 200 OK\", function () { pm.response.to.have.status(200); });",
+                                    "pm.test(\"Profil statique présent\", function () { var json = pm.response.json(); pm.expect(json.profiles).to.include(\"statique\"); pm.expect(json.propertySources.length).to.be.at.least(1); });"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "http://localhost:8888/api-gateway/statique",
+                            "protocol": "http",
+                            "host": [
+                                "localhost"
+                            ],
+                            "port": "8888",
+                            "path": [
+                                "api-gateway",
+                                "statique"
+                            ]
+                        }
+                    }
                 }
             ]
         },
@@ -1284,6 +1315,112 @@
                                 "api",
                                 "demo",
                                 "hello"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "5.2 - Eureka Server : Vérifier les instances enregistrées (UP)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test(\"Status code is 200 OK\", function () { pm.response.to.have.status(200); });",
+                                    "pm.test(\"Applications enregistrées dans Eureka\", function () { var json = pm.response.json(); pm.expect(json.applications.application).to.be.an(\"array\").and.not.be.empty; });"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "http://localhost:8761/eureka/apps",
+                            "protocol": "http",
+                            "host": [
+                                "localhost"
+                            ],
+                            "port": "8761",
+                            "path": [
+                                "eureka",
+                                "apps"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "5.3 - API Gateway : Consulter les routes actives (/actuator/gateway/routes)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test(\"Status code is 200 OK\", function () { pm.response.to.have.status(200); });",
+                                    "pm.test(\"Routes Gateway chargées\", function () { var json = pm.response.json(); pm.expect(json).to.be.an(\"array\").and.not.be.empty; });"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/actuator/gateway/routes",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "actuator",
+                                "gateway",
+                                "routes"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "5.4 - API Gateway : Routage dynamique via nom de service (/service-residents/api/residents)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test(\"Status code is 200 OK\", function () { pm.response.to.have.status(200); });",
+                                    "pm.test(\"Liste résidents retournée via route dynamique\", function () { var json = pm.response.json(); pm.expect(json).to.be.an(\"array\"); });"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/service-residents/api/residents",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "service-residents",
+                                "api",
+                                "residents"
                             ]
                         }
                     }

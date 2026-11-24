@@ -1,5 +1,6 @@
 package com.mybuilding.gateway.filter;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.cloud.gateway.route.Route;
@@ -32,6 +33,7 @@ public class InMemoryRateLimiterFilter implements GlobalFilter, Ordered {
     private final Clock clock;
     private final Map<String, TokenBucket> buckets = new ConcurrentHashMap<>();
 
+    @Autowired
     public InMemoryRateLimiterFilter(RateLimitProperties properties) {
         this(properties, Clock.systemUTC());
     }

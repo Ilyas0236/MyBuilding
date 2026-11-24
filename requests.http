@@ -140,8 +140,26 @@ Accept: application/json
 
 ###
 
+### Config Server : Vérifier la configuration distribuée de api-gateway (profil statique)
+GET http://localhost:8888/api-gateway/statique
+Accept: application/json
+
+###
+
 ### Config Server : Vérifier la configuration distribuée de service-notifications
 GET http://localhost:8888/service-notifications/default
+Accept: application/json
+
+###
+
+### API Gateway : Lister toutes les routes actives (dynamiques + statiques)
+GET {{baseUrl}}/actuator/gateway/routes
+Accept: application/json
+
+###
+
+### API Gateway : Routage dynamique par nom de service Eureka (/service-residents/...)
+GET {{baseUrl}}/service-residents/api/residents
 Accept: application/json
 
 ###
