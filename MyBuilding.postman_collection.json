@@ -1906,6 +1906,46 @@
                             ]
                         }
                     }
+                },
+                {
+                    "name": "6.10 - [Valide] Vérifier solde Résident mis à jour via Feign PATCH (solde < 0)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test(\"Status code is 200 OK\", function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "pm.test(\"Solde résident débité suite au paiement Feign PATCH\", function () {",
+                                    "    var json = pm.response.json();",
+                                    "    pm.expect(json.solde).to.be.below(0);",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "raw": "{{baseUrl}}/api/residents/1",
+                            "path": [
+                                "api",
+                                "residents",
+                                "1"
+                            ]
+                        }
+                    }
                 }
             ]
         },
